@@ -104,10 +104,10 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
       ref={panelRef}
       role="dialog"
       aria-label="Chat de asistencia"
-      className="animate-slide-up fixed right-4 bottom-24 z-50 flex w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-dark-light shadow-2xl sm:right-6 sm:w-[400px]"
-      style={{ height: 'min(520px, calc(100vh - 8rem))' }}
+      className="animate-slide-up fixed right-4 bottom-24 z-50 flex w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-dark-light shadow-2xl sm:right-6 sm:w-[440px]"
+      style={{ height: 'min(572px, calc(100vh - 8rem))' }}
     >
-      <div className="flex items-center justify-between bg-primary px-4 py-3">
+      <div className="flex items-center justify-between bg-[#a03308] px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
@@ -198,6 +198,7 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
             </svg>
           </button>
         </div>
+        <p className="mt-1.5 text-center text-[10px] text-white/30">El contenido generado por la IA puede ser inexacto.</p>
       </div>
     </div>
   )
