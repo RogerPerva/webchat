@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3'
 import type { ChatMessage, AppointmentData } from '../services/chatApi'
 import { sendMessage, setUserName, buildAppointmentText } from '../services/chatApi'
 import ScheduleForm from './ScheduleForm'
 
 interface ChatWidgetProps {
   onClose: () => void
-  recaptchaToken: string | null
 }
 
 const INITIAL_USER_MESSAGE = 'Hola, quisiera agendar una consulta.'
@@ -14,12 +14,13 @@ function createMessage(text: string, sender: 'user' | 'bot'): ChatMessage {
   return { id: crypto.randomUUID(), text, sender, timestamp: new Date() }
 }
 
-export default function ChatWidget({ onClose, recaptchaToken }: ChatWidgetProps) {
+export default function ChatWidget({ onClose }: ChatWidgetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState(INITIAL_USER_MESSAGE)
   const [isLoading, setIsLoading] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
   const [hasReceivedFirstReply, setHasReceivedFirstReply] = useState(false)
+  const { executeRecaptcha } = useGoogleReCaptcha()
 
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -60,13 +61,23 @@ export default function ChatWidget({ onClose, recaptchaToken }: ChatWidgetProps)
   const appendMessage = (msg: ChatMessage) =>
     setMessages((prev) => [...prev, msg])
 
-  const doSend = async (text: string) => {
+  const getRecaptchaToken = useCallback(async (): Promise<string | undefined> => {
+    if (!executeRecaptcha) return undefined
+    try {
+      return await executeRecaptcha('send_message')
+    } catch {
+      return undefined
+    }
+  }, [executeRecaptcha])
+
+  const doSend = async (text: string, isFirstMessage = false) => {
     appendMessage(createMessage(text, 'user'))
     setInput('')
     setIsLoading(true)
 
     try {
-      const reply = await sendMessage(text, recaptchaToken ?? undefined)
+      const token = isFirstMessage ? await getRecaptchaToken() : undefined
+      const reply = await sendMessage(text, token)
       appendMessage(createMessage(reply, 'bot'))
 
       if (!hasReceivedFirstReply) {
@@ -84,7 +95,7 @@ export default function ChatWidget({ onClose, recaptchaToken }: ChatWidgetProps)
   const handleSend = () => {
     const text = input.trim()
     if (!text || isLoading) return
-    doSend(text)
+    doSend(text, messages.length === 0)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -97,7 +108,7 @@ export default function ChatWidget({ onClose, recaptchaToken }: ChatWidgetProps)
   const handleScheduleSubmit = async (data: AppointmentData) => {
     setShowSchedule(false)
     setUserName(data.name.trim().split(/\s+/)[0])
-    await doSend(buildAppointmentText(data))
+    await doSend(buildAppointmentText(data), false)
   }
 
   return (

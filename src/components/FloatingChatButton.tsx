@@ -5,7 +5,6 @@ import ChatWidget from './ChatWidget'
 export default function FloatingChatButton() {
   const [isOpen, setIsOpen] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null)
   const { executeRecaptcha } = useGoogleReCaptcha()
 
   const handleToggle = useCallback(async () => {
@@ -14,17 +13,19 @@ export default function FloatingChatButton() {
       return
     }
 
-    if (!executeRecaptcha) return
+    if (!executeRecaptcha) {
+      setIsOpen(true)
+      return
+    }
 
     setIsVerifying(true)
     try {
-      const token = await executeRecaptcha('open_chat')
-      if (token) {
-        setRecaptchaToken(token)
+      await executeRecaptcha('open_chat')
+      setIsOpen(true)
+    } catch {
+      if (import.meta.env.DEV) {
         setIsOpen(true)
       }
-    } catch {
-      // silently fail - captcha error should not block UX in dev
     } finally {
       setIsVerifying(false)
     }
@@ -54,7 +55,7 @@ export default function FloatingChatButton() {
         )}
       </button>
 
-      {isOpen && <ChatWidget onClose={() => setIsOpen(false)} recaptchaToken={recaptchaToken} />}
+      {isOpen && <ChatWidget onClose={() => setIsOpen(false)} />}
     </>
   )
 }
