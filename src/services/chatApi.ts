@@ -25,21 +25,22 @@ export function setUserName(name: string) {
   userFirstName = name || 'Visitante'
 }
 
-function buildPayload(text: string) {
+function buildPayload(text: string, recaptchaToken?: string) {
   return {
     message: {
       from: { id: IWA_NUMBER, first_name: userFirstName },
       chat: { id: IWA_NUMBER, first_name: userFirstName, type: 'private' },
       text,
     },
+    ...(recaptchaToken ? { recaptchaToken } : {}),
   }
 }
 
-export async function sendMessage(text: string): Promise<string> {
+export async function sendMessage(text: string, recaptchaToken?: string): Promise<string> {
   const response = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildPayload(text)),
+    body: JSON.stringify(buildPayload(text, recaptchaToken)),
   })
 
   if (!response.ok) {

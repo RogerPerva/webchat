@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3'
 import type { ChatMessage, AppointmentData } from '../services/chatApi'
 import { sendMessage, setUserName, buildAppointmentText } from '../services/chatApi'
 import ScheduleForm from './ScheduleForm'
@@ -19,6 +20,7 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
   const [hasReceivedFirstReply, setHasReceivedFirstReply] = useState(false)
+  const { executeRecaptcha } = useGoogleReCaptcha()
 
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -59,20 +61,31 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
   const appendMessage = (msg: ChatMessage) =>
     setMessages((prev) => [...prev, msg])
 
-  const doSend = async (text: string) => {
+  const getRecaptchaToken = useCallback(async (): Promise<string | undefined> => {
+    if (!executeRecaptcha) return undefined
+    try {
+      return await executeRecaptcha('send_message')
+    } catch {
+      return undefined
+    }
+  }, [executeRecaptcha])
+
+  const doSend = async (text: string, isFirstMessage = false) => {
     appendMessage(createMessage(text, 'user'))
     setInput('')
     setIsLoading(true)
 
     try {
-      const reply = await sendMessage(text)
+      const token = isFirstMessage ? await getRecaptchaToken() : undefined
+      const reply = await sendMessage(text, token)
       appendMessage(createMessage(reply, 'bot'))
 
       if (!hasReceivedFirstReply) {
         setHasReceivedFirstReply(true)
         setShowSchedule(true)
       }
-    } catch {
+    } catch (err) {
+      console.error('[ChatWidget] Error al enviar mensaje:', err)
       appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
     } finally {
       setIsLoading(false)
@@ -83,7 +96,7 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
   const handleSend = () => {
     const text = input.trim()
     if (!text || isLoading) return
-    doSend(text)
+    doSend(text, messages.length === 0)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -96,7 +109,7 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
   const handleScheduleSubmit = async (data: AppointmentData) => {
     setShowSchedule(false)
     setUserName(data.name.trim().split(/\s+/)[0])
-    await doSend(buildAppointmentText(data))
+    await doSend(buildAppointmentText(data), false)
   }
 
   return (
@@ -199,6 +212,12 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
           </button>
         </div>
         <p className="mt-1.5 text-center text-[10px] text-white/30">El contenido generado por la IA puede ser inexacto.</p>
+        <p className="mt-1.5 text-center text-[10px] text-white/30">
+          Protegido por reCAPTCHA —{' '}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Privacidad</a>
+          {' '}·{' '}
+          <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Términos</a>
+        </p>
       </div>
     </div>
   )
