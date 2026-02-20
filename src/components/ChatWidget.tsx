@@ -84,7 +84,8 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
         setHasReceivedFirstReply(true)
         setShowSchedule(true)
       }
-    } catch {
+    } catch (err) {
+      console.error('[ChatWidget] Error al enviar mensaje:', err)
       appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
     } finally {
       setIsLoading(false)
@@ -211,6 +212,12 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
           </button>
         </div>
         <p className="mt-1.5 text-center text-[10px] text-white/30">El contenido generado por la IA puede ser inexacto.</p>
+        <p className="mt-1.5 text-center text-[10px] text-white/30">
+          Protegido por reCAPTCHA —{' '}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Privacidad</a>
+          {' '}·{' '}
+          <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Términos</a>
+        </p>
       </div>
     </div>
   )
