@@ -5,6 +5,7 @@ import ScheduleForm from './ScheduleForm'
 
 interface ChatWidgetProps {
   onClose: () => void
+  recaptchaToken: string | null
 }
 
 const INITIAL_USER_MESSAGE = 'Hola, quisiera agendar una consulta.'
@@ -13,7 +14,7 @@ function createMessage(text: string, sender: 'user' | 'bot'): ChatMessage {
   return { id: crypto.randomUUID(), text, sender, timestamp: new Date() }
 }
 
-export default function ChatWidget({ onClose }: ChatWidgetProps) {
+export default function ChatWidget({ onClose, recaptchaToken }: ChatWidgetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState(INITIAL_USER_MESSAGE)
   const [isLoading, setIsLoading] = useState(false)
@@ -65,7 +66,7 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
     setIsLoading(true)
 
     try {
-      const reply = await sendMessage(text)
+      const reply = await sendMessage(text, recaptchaToken ?? undefined)
       appendMessage(createMessage(reply, 'bot'))
 
       if (!hasReceivedFirstReply) {
