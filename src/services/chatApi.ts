@@ -15,8 +15,7 @@ export interface AppointmentData {
 }
 
 const WEBHOOK_URL =
-  import.meta.env.VITE_N8N_WEBHOOK_URL ||
-  'https://iwaconsolti.app.n8n.cloud/webhook/iwa-ai'
+  import.meta.env.VITE_N8N_WEBHOOK_URL
 
 const IWA_NUMBER = Math.floor(Math.random() * 900000000) + 100000000
 let userFirstName = 'Visitante'

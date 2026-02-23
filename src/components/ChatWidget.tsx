@@ -2,22 +2,26 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChatMessage, AppointmentData } from '../services/chatApi'
 import { sendMessage, setUserName, buildAppointmentText } from '../services/chatApi'
 import ScheduleForm from './ScheduleForm'
+import DateTimePicker from './DateTimePicker'
 
 interface ChatWidgetProps {
+  isOpen: boolean
   onClose: () => void
 }
 
 const INITIAL_USER_MESSAGE = 'Hola, quisiera agendar una consulta.'
+const CALENDAR_TRIGGER = 'podria seleccionar una fecha y hora que le quede bien para la reunion'
 
 function createMessage(text: string, sender: 'user' | 'bot'): ChatMessage {
   return { id: crypto.randomUUID(), text, sender, timestamp: new Date() }
 }
 
-export default function ChatWidget({ onClose }: ChatWidgetProps) {
+export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState(INITIAL_USER_MESSAGE)
   const [isLoading, setIsLoading] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
   const [hasReceivedFirstReply, setHasReceivedFirstReply] = useState(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -25,23 +29,27 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [])
+    if (isOpen) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [isOpen])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   useEffect(() => {
+    if (!isOpen) return
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleKey)
     return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
+  }, [isOpen, onClose])
 
   useEffect(() => {
+    if (!isOpen) return
     const handleClick = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         onClose()
@@ -54,7 +62,7 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
       clearTimeout(timer)
       document.removeEventListener('mousedown', handleClick)
     }
-  }, [onClose])
+  }, [isOpen, onClose])
 
   const appendMessage = (msg: ChatMessage) =>
     setMessages((prev) => [...prev, msg])
@@ -67,6 +75,10 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
     try {
       const reply = await sendMessage(text)
       appendMessage(createMessage(reply, 'bot'))
+
+      if (reply.toLowerCase().includes(CALENDAR_TRIGGER)) {
+        setShowCalendar(true)
+      }
 
       if (!hasReceivedFirstReply) {
         setHasReceivedFirstReply(true)
@@ -91,6 +103,11 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  const handleDateTimeConfirm = async (isoDate: string) => {
+    setShowCalendar(false)
+    await doSend(`Tengo disponibilidad para la fecha: ${isoDate}`)
   }
 
   const handleScheduleSubmit = async (data: AppointmentData) => {
@@ -161,6 +178,14 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
           </div>
         )}
 
+        {showCalendar && (
+          <div className="mb-3 flex justify-start">
+            <div className="w-[95%] rounded-2xl rounded-bl-sm bg-white/10">
+              <DateTimePicker onConfirm={handleDateTimeConfirm} />
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -181,14 +206,14 @@ export default function ChatWidget({ onClose }: ChatWidgetProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={showSchedule}
-            placeholder={showSchedule ? 'Completa el formulario arriba' : 'Escribe un mensaje...'}
+            disabled={showSchedule || showCalendar}
+            placeholder={showSchedule ? 'Completa el formulario arriba' : showCalendar ? 'Selecciona fecha y hora arriba' : 'Escribe un mensaje...'}
             aria-label="Mensaje de chat"
             className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-primary disabled:opacity-40"
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading || showSchedule}
+            disabled={!input.trim() || isLoading || showSchedule || showCalendar}
             aria-label="Enviar mensaje"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white transition-opacity hover:opacity-80 disabled:opacity-40"
           >
