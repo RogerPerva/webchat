@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import {
   sendMessage,
   buildAppointmentText,
@@ -17,6 +17,10 @@ import {
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 export type ChatMode = null | 'new' | 'existing'
+
+export interface UseChatSessionOptions {
+  executeRecaptcha?: ((action?: string) => Promise<string>) | null
+}
 
 export interface ChatSession {
   // Estado
@@ -66,7 +70,8 @@ function createMessage(text: string, sender: 'user' | 'bot'): ChatMessage {
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
-export function useChatSession(): ChatSession {
+export function useChatSession(options: UseChatSessionOptions = {}): ChatSession {
+  const { executeRecaptcha } = options
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -96,13 +101,26 @@ export function useChatSession(): ChatSession {
   const appendMessage = (msg: ChatMessage) =>
     setMessages((prev) => [...prev, msg])
 
-  const doSend = async (text: string) => {
+  const getRecaptchaToken = useCallback(async (): Promise<string | undefined> => {
+    if (!executeRecaptcha) return undefined
+    try {
+      return await executeRecaptcha('send_message')
+    } catch {
+      return undefined
+    }
+  }, [executeRecaptcha])
+
+  const doSend = async (text: string, isFirstMessage = false) => {
     appendMessage(createMessage(text, 'user'))
     setInput('')
     setIsLoading(true)
 
     try {
-      const reply = await sendMessage(text, ctxRef.current)
+      // Solo enviar token reCAPTCHA en el primer mensaje de nueva consulta
+      const token = (isFirstMessage && ctxRef.current.isNewConsultation)
+        ? await getRecaptchaToken()
+        : undefined
+      const reply = await sendMessage(text, ctxRef.current, token)
       appendMessage(createMessage(reply, 'bot'))
 
       if (reply.toLowerCase().includes(CALENDAR_TRIGGER)) {
@@ -136,7 +154,7 @@ export function useChatSession(): ChatSession {
   const handleNewConsultation = () => {
     ctxRef.current = { ...ctxRef.current, isNewConsultation: true }
     setChatMode('new')
-    doSend(INITIAL_USER_MESSAGE)
+    doSend(INITIAL_USER_MESSAGE, true)
   }
 
   const handleExistingConsultation = () => {

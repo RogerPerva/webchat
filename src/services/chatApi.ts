@@ -33,7 +33,7 @@ export const CHAT_ID = Math.floor(Math.random() * 900000000) + 100000000
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-function buildPayload(text: string, ctx: ChatContext) {
+function buildPayload(text: string, ctx: ChatContext, recaptchaToken?: string) {
   return {
     message: {
       from: { id: ctx.chatId, first_name: ctx.userName },
@@ -41,14 +41,15 @@ function buildPayload(text: string, ctx: ChatContext) {
       text,
     },
     nueva_consulta: ctx.isNewConsultation,
+    ...(recaptchaToken ? { recaptchaToken } : {}),
   }
 }
 
-export async function sendMessage(text: string, ctx: ChatContext): Promise<string> {
+export async function sendMessage(text: string, ctx: ChatContext, recaptchaToken?: string): Promise<string> {
   const response = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildPayload(text, ctx)),
+    body: JSON.stringify(buildPayload(text, ctx, recaptchaToken)),
   })
 
   if (!response.ok) {

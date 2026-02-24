@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3'
 import { useChatSession } from '../hooks/useChatSession'
 import ScheduleForm from './ScheduleForm'
 import DateTimePicker from './DateTimePicker'
@@ -9,7 +10,8 @@ interface ChatWidgetProps {
 }
 
 export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
-  const session = useChatSession()
+  const { executeRecaptcha } = useGoogleReCaptcha()
+  const session = useChatSession({ executeRecaptcha })
 
   const inputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -231,6 +233,12 @@ export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
               </button>
             </div>
             <p className="mt-1.5 text-center text-[10px] text-white/30">El contenido generado por la IA puede ser inexacto.</p>
+            <p className="mt-1 text-center text-[10px] text-white/30">
+              Protegido por reCAPTCHA —{' '}
+              <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Privacidad</a>
+              {' '}·{' '}
+              <a href="https://policies.google.com/terms" target="_blank" rel="noreferrer" className="underline hover:text-white/50">Términos</a>
+            </p>
           </>
         )}
       </div>
