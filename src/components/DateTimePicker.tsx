@@ -11,7 +11,7 @@ const MONTHS = [
 ]
 
 const HOURS = Array.from({ length: 11 }, (_, i) => i + 8) // 8:00 - 18:00
-const MINUTES = [0, 15, 30, 45]
+const MINUTES = [0, 30]
 
 function pad(n: number) {
   return n.toString().padStart(2, '0')
