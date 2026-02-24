@@ -1,3 +1,7 @@
+import { WEBHOOK_URL } from '../chat.config'
+
+// ── Tipos públicos ────────────────────────────────────────────────────────────
+
 export interface ChatMessage {
   id: string
   text: string
@@ -14,32 +18,37 @@ export interface AppointmentData {
   description: string
 }
 
-const WEBHOOK_URL =
-  import.meta.env.VITE_N8N_WEBHOOK_URL ||
-  'https://iwaconsolti.app.n8n.cloud/webhook/iwa-ai'
-
-const IWA_NUMBER = Math.floor(Math.random() * 900000000) + 100000000
-let userFirstName = 'Visitante'
-
-export function setUserName(name: string) {
-  userFirstName = name || 'Visitante'
+/** Contexto de sesión que acompaña cada mensaje enviado a n8n */
+export interface ChatContext {
+  chatId: number
+  isNewConsultation: boolean
+  userName: string
 }
 
-function buildPayload(text: string) {
+// ── ID de sesión ──────────────────────────────────────────────────────────────
+// Se genera una sola vez al cargar el módulo y representa la sesión actual.
+// En consultas nuevas se usa como folio; en existentes el usuario lo reemplaza.
+
+export const CHAT_ID = Math.floor(Math.random() * 900000000) + 100000000
+
+// ── API ───────────────────────────────────────────────────────────────────────
+
+function buildPayload(text: string, ctx: ChatContext) {
   return {
     message: {
-      from: { id: IWA_NUMBER, first_name: userFirstName },
-      chat: { id: IWA_NUMBER, first_name: userFirstName, type: 'private' },
+      from: { id: ctx.chatId, first_name: ctx.userName },
+      chat: { id: ctx.chatId, first_name: ctx.userName, type: 'private' },
       text,
     },
+    nueva_consulta: ctx.isNewConsultation,
   }
 }
 
-export async function sendMessage(text: string): Promise<string> {
+export async function sendMessage(text: string, ctx: ChatContext): Promise<string> {
   const response = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildPayload(text)),
+    body: JSON.stringify(buildPayload(text, ctx)),
   })
 
   if (!response.ok) {
@@ -57,6 +66,8 @@ export async function sendMessage(text: string): Promise<string> {
 
   return (data.message ?? data.output ?? data.text ?? raw) as string
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function buildAppointmentText(data: AppointmentData): string {
   let text = `Mi nombre es ${data.name}. Mi teléfono es ${data.phone} y mi correo es ${data.email}. Tipo de aplicación: ${data.appType}.`

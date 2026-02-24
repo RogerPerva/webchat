@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AppointmentData } from '../services/chatApi'
+import { APP_TYPE_OPTIONS } from '../chat.config'
 
 interface ScheduleFormProps {
   onSubmit: (data: AppointmentData) => void
@@ -10,15 +11,6 @@ type ValidatedField = 'name' | 'phone' | 'email' | 'appType' | 'description'
 type FormErrors = Partial<Record<ValidatedField, string>>
 
 const MAX_DESCRIPTION = 500
-
-const APP_TYPE_OPTIONS = [
-  { value: '', label: 'Selecciona tipo de aplicación *' },
-  { value: 'Web App', label: 'Web App' },
-  { value: 'Landing Page', label: 'Landing Page' },
-  { value: 'Móvil App', label: 'Móvil App' },
-  { value: 'Automatización', label: 'Automatización' },
-  { value: 'Otra', label: 'Otra' },
-]
 
 export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) {
   const [form, setForm] = useState<AppointmentData>({
@@ -33,7 +25,6 @@ export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) 
 
   const validate = (): boolean => {
     const e: FormErrors = {}
-
     if (!form.name.trim()) e.name = 'El nombre es requerido'
     if (!form.phone.trim()) e.phone = 'El teléfono es requerido'
     if (!form.email.trim()) e.email = 'El correo es requerido'
@@ -41,7 +32,6 @@ export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) 
     if (!form.appType) e.appType = 'Selecciona un tipo de aplicación'
     if (!form.description.trim()) e.description = 'La descripción es requerida'
     else if (form.description.length > MAX_DESCRIPTION) e.description = `Máximo ${MAX_DESCRIPTION} caracteres`
-
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -58,10 +48,10 @@ export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) 
     }
   }
 
+  const baseFieldClass = 'w-full rounded-lg border bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-primary'
   const fieldClass = (field: ValidatedField) =>
-    `w-full rounded-lg border bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-primary ${
-      errors[field] ? 'border-red-500' : 'border-white/10'
-    }`
+    `${baseFieldClass} ${errors[field] ? 'border-red-500' : 'border-white/10'}`
+  const optionalFieldClass = `${baseFieldClass} border-white/10`
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 px-4 py-4">
@@ -130,7 +120,7 @@ export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) 
           value={form.budget}
           onChange={(e) => updateField('budget', e.target.value)}
           aria-label="Presupuesto"
-          className={fieldClass('name').replace('border-red-500', 'border-white/10')}
+          className={optionalFieldClass}
         />
       </div>
 

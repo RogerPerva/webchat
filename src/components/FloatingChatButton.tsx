@@ -23,7 +23,9 @@ export default function FloatingChatButton() {
         )}
       </button>
 
-      {isOpen && <ChatWidget onClose={() => setIsOpen(false)} />}
+      <div className={isOpen ? '' : 'hidden'}>
+        <ChatWidget isOpen={isOpen} onClose={() => setIsOpen(false)} />
+      </div>
     </>
   )
 }
