@@ -94,7 +94,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
   const appointmentJustSubmitted = useRef(false)
 
-  const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros. En tu correo encontrarás tu folio, el cual puedes ingresar aquí por si tienes alguna duda o quieres reagendar. Te lo comparto de igual forma: ${CHAT_ID}`
+  const folioMessage = `De antemano gracias por haberte puesto en contacto con nosotros. Por favor conserva este folio: ${CHAT_ID}, este nos ayudará a continuar la conversacion en caso de que se cierre o para futuras consultas.`
 
   // ── Acción central de envío ───────────────────────────────────────────────
 
