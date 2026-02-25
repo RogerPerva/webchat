@@ -194,7 +194,47 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
   const handleDateTimeConfirm = (isoDate: string) => {
     setShowCalendar(false)
-    doSend(`Tengo disponibilidad para la fecha: ${isoDate}`)
+    // Formatear fecha para mostrar de forma más estética
+    const date = new Date(isoDate)
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }
+    const formattedDate = date.toLocaleDateString('es-MX', options)
+
+    // Mensaje visual estético, pero el payload al backend usa ISO
+    const userMessage = `Tengo disponibilidad para la fecha: ${formattedDate}`
+    const payloadMessage = `Tengo disponibilidad para la fecha: ${isoDate}`
+
+    // Mostrar mensaje estético al usuario
+    appendMessage(createMessage(userMessage, 'user'))
+    setInput('')
+    setIsLoading(true)
+
+    // Enviar con formato ISO al backend
+    sendMessage(payloadMessage, ctxRef.current, undefined)
+      .then((reply) => {
+        appendMessage(createMessage(reply, 'bot'))
+
+        // Verificar si el bot quiere mostrar el calendario de nuevo
+        if (reply.toLowerCase().includes(CALENDAR_TRIGGER)) {
+          setShowCalendar(true)
+        }
+
+        if (reply.toLowerCase().includes(INVALID_FOLIO_TRIGGER)) {
+          setShowRestart(true)
+        }
+      })
+      .catch(() => {
+        appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
   }
 
   const handleScheduleSubmit = (data: AppointmentData) => {

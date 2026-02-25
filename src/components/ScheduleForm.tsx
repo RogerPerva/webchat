@@ -26,9 +26,13 @@ export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) 
   const validate = (): boolean => {
     const e: FormErrors = {}
     if (!form.name.trim()) e.name = 'El nombre es requerido'
+
     if (!form.phone.trim()) e.phone = 'El teléfono es requerido'
+    else if (!/^\d{10}$/.test(form.phone)) e.phone = 'El teléfono debe tener exactamente 10 dígitos'
+
     if (!form.email.trim()) e.email = 'El correo es requerido'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Ingresa un correo válido'
+    else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(form.email)) e.email = 'Ingresa un correo válido'
+
     if (!form.appType) e.appType = 'Selecciona un tipo de aplicación'
     if (!form.description.trim()) e.description = 'La descripción es requerida'
     else if (form.description.length > MAX_DESCRIPTION) e.description = `Máximo ${MAX_DESCRIPTION} caracteres`
@@ -73,11 +77,15 @@ export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) 
       <div>
         <input
           type="tel"
-          placeholder="Teléfono de contacto *"
+          placeholder="Teléfono de contacto (10 dígitos) *"
           value={form.phone}
-          onChange={(e) => updateField('phone', e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, '')
+            if (value.length <= 10) updateField('phone', value)
+          }}
           aria-label="Teléfono de contacto"
           aria-invalid={!!errors.phone}
+          maxLength={10}
           className={fieldClass('phone')}
         />
         {errors.phone && <p className="mt-1 text-xs text-red-400">{errors.phone}</p>}

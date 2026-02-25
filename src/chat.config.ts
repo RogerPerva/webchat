@@ -12,13 +12,14 @@ export const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL as string
 export const INITIAL_USER_MESSAGE = 'Hola, quisiera agendar una consulta.'
 
 /** Fragmento que n8n incluye en su respuesta cuando quiere mostrar el calendario */
-export const CALENDAR_TRIGGER = 'podria seleccionar una fecha y hora que le quede bien para la reunion'
+export const CALENDAR_TRIGGER = 'podría seleccionar una fecha y hora'
 
 /** Fragmento que n8n incluye cuando el folio ingresado no existe */
 export const INVALID_FOLIO_TRIGGER = 'folio incorrecto'
 
 // ── Temas para consultas existentes ──────────────────────────────────────────
 // Agrega, quita o edita entradas según los casos de uso del negocio.
+
 
 export const EXISTING_TOPICS: { label: string; message: string }[] = [
   {
