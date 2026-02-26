@@ -36,11 +36,15 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
     return () => document.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
-  // Cerrar al hacer clic fuera del panel
+  // Cerrar al hacer clic fuera del widget completo (panel + botón flotante)
   useEffect(() => {
     if (!isOpen) return
     const onClick = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose()
+      // composedPath() traverses shadow roots, needed when React runs inside a Shadow DOM
+      const path = e.composedPath()
+      // Walk up to find the [data-iwa-root] wrapper that contains both the button and the panel
+      const root = panelRef.current?.closest('[data-iwa-root]') ?? panelRef.current
+      if (root && !path.includes(root)) onClose()
     }
     const timer = setTimeout(() => document.addEventListener('mousedown', onClick), 100)
     return () => { clearTimeout(timer); document.removeEventListener('mousedown', onClick) }

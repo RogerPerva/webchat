@@ -35,7 +35,7 @@ function FloatingChatButtonInner({ executeRecaptcha }: FloatingChatButtonInnerPr
   }, [isOpen, executeRecaptcha])
 
   return (
-    <>
+    <div data-iwa-root>
       <button
         aria-label={isOpen ? 'Cerrar chat' : 'Abrir chat'}
         onClick={handleToggle}
@@ -61,7 +61,7 @@ function FloatingChatButtonInner({ executeRecaptcha }: FloatingChatButtonInnerPr
       <div className={isOpen ? '' : 'hidden'}>
         <ChatWidget isOpen={isOpen} onClose={() => setIsOpen(false)} executeRecaptcha={executeRecaptcha} />
       </div>
-    </>
+    </div>
   )
 }
 

@@ -18,13 +18,14 @@ npm run build:widget
 Esto genera en `dist-widget/`:
 ```
 dist-widget/
-├── iwa-chat-widget.js    ← script del widget
-└── iwa-chat-widget.css   ← estilos del widget
+└── iwa-chat-widget.js    ← script del widget (incluye los estilos embebidos)
 ```
+
+> Los estilos van embebidos dentro del JS. No se genera un `.css` separado.
 
 ### 2. Subir los archivos
 
-Sube `iwa-chat-widget.js` e `iwa-chat-widget.css` a tu servidor, CDN (Cloudflare, S3, GitHub Pages, etc.) o directamente a la carpeta de medios de WordPress.
+Sube únicamente `iwa-chat-widget.js` a tu servidor, CDN (Cloudflare, S3, GitHub Pages, etc.) o directamente a la carpeta de medios de WordPress.
 
 ### 3. Agregar el snippet en tu sitio
 
@@ -35,7 +36,6 @@ Pega esto antes del cierre de `</body>`. En WordPress puedes hacerlo desde:
 
 ```html
 <!-- IWA Chat Widget -->
-<link rel="stylesheet" href="https://tu-dominio.com/ruta/iwa-chat-widget.css" />
 <script>
   window.IWAChatConfig = {
     webhookUrl: 'https://tu-instancia.n8n.cloud/webhook/tu-ruta',
@@ -62,10 +62,26 @@ Si usas el plugin WPCode:
 
 ### Notas importantes
 
-- Los nombres de archivo son **fijos** (`iwa-chat-widget.js` y `iwa-chat-widget.css`), no cambian entre builds. Esto facilita actualizaciones sin tocar el snippet.
+- El nombre de archivo es **fijo** (`iwa-chat-widget.js`), no cambia entre builds. Esto facilita actualizaciones: solo reemplaza el archivo en el servidor sin tocar el snippet HTML.
 - El widget crea su propio contenedor (`#iwa-chat-widget`) y no depende de ningún `<div>` existente en tu sitio.
-- Los estilos están aislados: no modifican el `body`, tipografía ni layout de tu sitio.
+- Los estilos están **completamente aislados** mediante Shadow DOM: los CSS de WordPress (u otro sitio) no pueden sobreescribir los estilos del chat, y los estilos del chat no afectan al resto de la página.
 - El botón flotante aparece automáticamente en la esquina inferior derecha.
+
+### Cómo funciona el aislamiento de estilos (Shadow DOM)
+
+El widget monta React dentro de un **Shadow DOM**, una burbuja nativa del browser que actúa como barrera hermética para los estilos:
+
+```
+<body>
+  <div id="iwa-chat-widget">     ← contenedor host (invisible)
+    #shadow-root                 ← barrera de aislamiento
+      <style>/* CSS del chat */</style>
+      <div>/* interfaz del chat */</div>
+  </div>
+</body>
+```
+
+El CSS de Tailwind se inyecta directamente dentro del shadow root al momento de ejecutarse el JS, por lo que nunca entra en conflicto con los estilos del sitio que lo aloja. Si en el pasado tenías un `<link rel="stylesheet" href="...iwa-chat-widget.css">` en tu sitio, ya puedes eliminarlo.
 
 ---
 
@@ -294,7 +310,7 @@ Todos los colores se controlan desde las variables CSS:
 
 El color del header del chat se define directamente en `ChatWidget.tsx` (`bg-[#a03308]`).
 
-Para la **Opción A (script embed)**, los colores se configuran en `src/widget.css` y se aplican al rebuild con `npm run build:widget`.
+Para la **Opción A (script embed)**, los colores se configuran en `src/widget.css` y se aplican al rebuild con `npm run build:widget`. Como los estilos van embebidos en el JS, no es posible sobreescribir los colores desde CSS externo — cualquier cambio requiere un nuevo build.
 
 ---
 
@@ -312,10 +328,11 @@ Para la **Opción A (script embed)**, los colores se configuran en `src/widget.c
 ## Checklist de integración (Opción A — Script embed)
 
 - [ ] `npm run build:widget` ejecutado sin errores
-- [ ] Archivos `iwa-chat-widget.js` e `iwa-chat-widget.css` subidos al servidor/CDN
+- [ ] Archivo `iwa-chat-widget.js` subido al servidor/CDN (no hay `.css` separado)
 - [ ] Snippet agregado en el footer del sitio destino con `webhookUrl` configurado
+- [ ] Si existía un `<link rel="stylesheet" href="...iwa-chat-widget.css">`, eliminado
 - [ ] CORS configurado en n8n si el dominio es diferente
-- [ ] Flujo probado: botón flotante visible en esquina inferior derecha
+- [ ] Flujo probado: botón flotante visible en esquina inferior derecha con colores correctos
 - [ ] Flujo probado: nueva consulta → formulario → folio recibido
 - [ ] Flujo probado: consulta existente → folio válido → tema → respuesta
 - [ ] Flujo probado: folio inválido → mensaje de error → reinicio
