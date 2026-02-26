@@ -2,10 +2,15 @@ import { useState, useCallback } from 'react'
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3'
 import ChatWidget from './ChatWidget'
 
-export default function FloatingChatButton() {
+type ExecuteRecaptcha = ((action?: string) => Promise<string>) | undefined
+
+interface FloatingChatButtonInnerProps {
+  executeRecaptcha: ExecuteRecaptcha
+}
+
+function FloatingChatButtonInner({ executeRecaptcha }: FloatingChatButtonInnerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isVerifying, setIsVerifying] = useState(false)
-  const { executeRecaptcha } = useGoogleReCaptcha()
 
   const handleToggle = useCallback(async () => {
     if (isOpen) {
@@ -23,16 +28,14 @@ export default function FloatingChatButton() {
       await executeRecaptcha('open_chat')
       setIsOpen(true)
     } catch {
-      if (import.meta.env.DEV) {
-        setIsOpen(true)
-      }
+      setIsOpen(true)
     } finally {
       setIsVerifying(false)
     }
   }, [isOpen, executeRecaptcha])
 
   return (
-    <>
+    <div data-iwa-root>
       <button
         aria-label={isOpen ? 'Cerrar chat' : 'Abrir chat'}
         onClick={handleToggle}
@@ -56,8 +59,22 @@ export default function FloatingChatButton() {
       </button>
 
       <div className={isOpen ? '' : 'hidden'}>
-        <ChatWidget isOpen={isOpen} onClose={() => setIsOpen(false)} />
+        <ChatWidget isOpen={isOpen} onClose={() => setIsOpen(false)} executeRecaptcha={executeRecaptcha} />
       </div>
-    </>
+    </div>
   )
+}
+
+/** Wrapper that reads reCAPTCHA from provider context */
+function WithRecaptcha() {
+  const { executeRecaptcha } = useGoogleReCaptcha()
+  return <FloatingChatButtonInner executeRecaptcha={executeRecaptcha} />
+}
+
+/** Main export — uses reCAPTCHA only when provider is present */
+export default function FloatingChatButton({ hasRecaptchaProvider = true }: { hasRecaptchaProvider?: boolean }) {
+  if (hasRecaptchaProvider) {
+    return <WithRecaptcha />
+  }
+  return <FloatingChatButtonInner executeRecaptcha={undefined} />
 }

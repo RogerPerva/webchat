@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import { useGoogleReCaptcha } from 'react-google-recaptcha-v3'
 import { useChatSession } from '../hooks/useChatSession'
 import ScheduleForm from './ScheduleForm'
 import DateTimePicker from './DateTimePicker'
@@ -7,10 +6,10 @@ import DateTimePicker from './DateTimePicker'
 interface ChatWidgetProps {
   isOpen: boolean
   onClose: () => void
+  executeRecaptcha?: ((action?: string) => Promise<string>) | undefined
 }
 
-export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
-  const { executeRecaptcha } = useGoogleReCaptcha()
+export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWidgetProps) {
   const session = useChatSession({ executeRecaptcha })
 
   const inputRef = useRef<HTMLInputElement>(null)
@@ -37,11 +36,15 @@ export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
     return () => document.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
-  // Cerrar al hacer clic fuera del panel
+  // Cerrar al hacer clic fuera del widget completo (panel + botón flotante)
   useEffect(() => {
     if (!isOpen) return
     const onClick = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose()
+      // composedPath() traverses shadow roots, needed when React runs inside a Shadow DOM
+      const path = e.composedPath()
+      // Walk up to find the [data-iwa-root] wrapper that contains both the button and the panel
+      const root = panelRef.current?.closest('[data-iwa-root]') ?? panelRef.current
+      if (root && !path.includes(root)) onClose()
     }
     const timer = setTimeout(() => document.addEventListener('mousedown', onClick), 100)
     return () => { clearTimeout(timer); document.removeEventListener('mousedown', onClick) }

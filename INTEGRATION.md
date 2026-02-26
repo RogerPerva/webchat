@@ -1,12 +1,93 @@
 # Guía de integración — Widget de Chat
 
-Este documento explica cómo llevar el widget a cualquier sitio web, ya sea copiando el código fuente en un proyecto React existente o desplegándolo como un script independiente.
+Este documento explica cómo llevar el widget a cualquier sitio web, ya sea embebiendo un script en un sitio existente (WordPress, HTML estático, etc.) o copiando el código fuente en un proyecto React.
 
 ---
 
-## Opción A — Integración en proyecto React existente (recomendada)
+## Opción A — Embeber como script (WordPress, HTML, etc.) — Recomendada
 
-La arquitectura del widget está diseñada para ser portable. Solo necesitas copiar 7 archivos y configurar una variable de entorno.
+La forma más sencilla de agregar el chat a cualquier sitio web. No necesitas tocar el código fuente del sitio destino, solo agregar 3 líneas.
+
+### 1. Generar el build del widget
+
+```bash
+npm install
+npm run build:widget
+```
+
+Esto genera en `dist-widget/`:
+```
+dist-widget/
+└── iwa-chat-widget.js    ← script del widget (incluye los estilos embebidos)
+```
+
+> Los estilos van embebidos dentro del JS. No se genera un `.css` separado.
+
+### 2. Subir los archivos
+
+Sube únicamente `iwa-chat-widget.js` a tu servidor, CDN (Cloudflare, S3, GitHub Pages, etc.) o directamente a la carpeta de medios de WordPress.
+
+### 3. Agregar el snippet en tu sitio
+
+Pega esto antes del cierre de `</body>`. En WordPress puedes hacerlo desde:
+- **Apariencia > Editor de temas > footer.php** (tema hijo recomendado)
+- Un plugin como **Insert Headers and Footers**, **WPCode** o similar
+- El bloque de **HTML personalizado** en el editor de bloques (Gutenberg)
+
+```html
+<!-- IWA Chat Widget -->
+<script>
+  window.IWAChatConfig = {
+    webhookUrl: 'https://tu-instancia.n8n.cloud/webhook/tu-ruta',
+    recaptchaSiteKey: 'tu-site-key-de-recaptcha'  // opcional, omitir si no usas reCAPTCHA
+  };
+</script>
+<script src="https://tu-dominio.com/ruta/iwa-chat-widget.js"></script>
+```
+
+### Configuración de `window.IWAChatConfig`
+
+| Propiedad | Requerida | Descripción |
+|---|---|---|
+| `webhookUrl` | Sí | URL del webhook de n8n que procesa los mensajes del chat |
+| `recaptchaSiteKey` | No | Clave pública de Google reCAPTCHA v3. Si se omite, el chat funciona sin protección anti-spam |
+
+### Ejemplo completo en WordPress (WPCode)
+
+Si usas el plugin WPCode:
+1. Ve a **WPCode > Agregar fragmento > HTML personalizado**
+2. Pega el snippet de arriba
+3. En ubicación selecciona **Site Wide Footer**
+4. Actívalo y guarda
+
+### Notas importantes
+
+- El nombre de archivo es **fijo** (`iwa-chat-widget.js`), no cambia entre builds. Esto facilita actualizaciones: solo reemplaza el archivo en el servidor sin tocar el snippet HTML.
+- El widget crea su propio contenedor (`#iwa-chat-widget`) y no depende de ningún `<div>` existente en tu sitio.
+- Los estilos están **completamente aislados** mediante Shadow DOM: los CSS de WordPress (u otro sitio) no pueden sobreescribir los estilos del chat, y los estilos del chat no afectan al resto de la página.
+- El botón flotante aparece automáticamente en la esquina inferior derecha.
+
+### Cómo funciona el aislamiento de estilos (Shadow DOM)
+
+El widget monta React dentro de un **Shadow DOM**, una burbuja nativa del browser que actúa como barrera hermética para los estilos:
+
+```
+<body>
+  <div id="iwa-chat-widget">     ← contenedor host (invisible)
+    #shadow-root                 ← barrera de aislamiento
+      <style>/* CSS del chat */</style>
+      <div>/* interfaz del chat */</div>
+  </div>
+</body>
+```
+
+El CSS de Tailwind se inyecta directamente dentro del shadow root al momento de ejecutarse el JS, por lo que nunca entra en conflicto con los estilos del sitio que lo aloja. Si en el pasado tenías un `<link rel="stylesheet" href="...iwa-chat-widget.css">` en tu sitio, ya puedes eliminarlo.
+
+---
+
+## Opción B — Integración en proyecto React existente
+
+Si tu sitio destino ya usa React, puedes copiar los componentes directamente.
 
 ### 1. Copiar los archivos
 
@@ -68,9 +149,10 @@ Agrega en tu CSS global (ej. `index.css`) los colores y la animación que usa el
 
 ```env
 VITE_N8N_WEBHOOK_URL=https://tu-instancia.n8n.cloud/webhook/tu-ruta
+VITE_RECAPTCHA_SITE_KEY=tu-site-key-aqui
 ```
 
-En producción, configura esta variable en tu plataforma de despliegue (Vercel, Netlify, etc.).
+En producción, configura estas variables en tu plataforma de despliegue (Vercel, Netlify, etc.).
 
 ### 4. Personalizar `chat.config.ts`
 
@@ -84,12 +166,12 @@ export const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL as string
 export const INITIAL_USER_MESSAGE = 'Hola, quisiera agendar una consulta.'
 
 // Fragmento que n8n manda en su respuesta para mostrar el calendario
-export const CALENDAR_TRIGGER = 'podria seleccionar una fecha y hora que le quede bien para la reunion'
+export const CALENDAR_TRIGGER = 'podría seleccionar una fecha y hora'
 
 // Fragmento que n8n manda cuando el folio no existe
 export const INVALID_FOLIO_TRIGGER = 'folio incorrecto'
 
-// Opciones del menú de consulta existente (agrega o quita según el cliente)
+// Opciones del menú de consulta existente
 export const EXISTING_TOPICS = [
   { label: 'Quiero reagendar',              message: 'Hola, me gustaría reagendar mi cita.' },
   { label: 'Quiero cambiar mi información', message: 'Hola, necesito actualizar mi información.' },
@@ -110,7 +192,6 @@ export const APP_TYPE_OPTIONS = [
 ### 5. Montar el widget
 
 ```tsx
-// En cualquier componente raíz de tu app
 import FloatingChatButton from './components/FloatingChatButton'
 
 export default function App() {
@@ -122,59 +203,6 @@ export default function App() {
   )
 }
 ```
-
----
-
-## Opción B — Embeber como script (sin modificar el proyecto destino)
-
-Útil cuando el sitio destino no es React o no tienes acceso al código fuente.
-
-### 1. Preparar el build solo con el chat
-
-Modifica `src/App.tsx` para que solo exporte el widget:
-
-```tsx
-import FloatingChatButton from './components/FloatingChatButton'
-
-export default function App() {
-  return <FloatingChatButton />
-}
-```
-
-### 2. Generar el build
-
-```bash
-npm install
-npm run build
-```
-
-Esto genera en `dist/assets/`:
-```
-dist/assets/
-├── index-XXXX.js
-└── index-XXXX.css
-```
-
-### 3. Subir a CDN o servidor
-
-Sube el contenido de `dist/assets/` a tu hosting, CDN (Cloudflare, S3, etc.) o GitHub Pages.
-
-### 4. Agregar en el HTML destino
-
-Pega esto antes del cierre de `</body>` en cualquier página:
-
-```html
-<!-- CSS del widget -->
-<link rel="stylesheet" href="https://tu-dominio.com/assets/index-XXXX.css" />
-
-<!-- Contenedor donde React montará el widget -->
-<div id="root"></div>
-
-<!-- JS del widget -->
-<script type="module" src="https://tu-dominio.com/assets/index-XXXX.js"></script>
-```
-
-El widget se renderiza de forma independiente y no interfiere con el CSS ni JS del sitio destino.
 
 ---
 
@@ -250,7 +278,7 @@ n8n debe responder **dentro del mismo ciclo HTTP** (antes del timeout del `fetch
 
 | Fragmento en la respuesta | Efecto |
 |---|---|
-| `podria seleccionar una fecha y hora que le quede bien para la reunion` | Muestra el selector de fecha y hora |
+| `podría seleccionar una fecha y hora` | Muestra el selector de fecha y hora |
 | `folio incorrecto` | Congela el input y muestra el botón "Reiniciar chat" |
 
 Los fragmentos son **case-insensitive** y configurables en `chat.config.ts` (`CALENDAR_TRIGGER`, `INVALID_FOLIO_TRIGGER`).
@@ -271,7 +299,7 @@ Access-Control-Allow-Headers: Content-Type
 
 ## Personalización de colores
 
-Todos los colores se controlan desde las variables CSS en `index.css`:
+Todos los colores se controlan desde las variables CSS:
 
 | Variable | Uso | Default |
 |---|---|---|
@@ -282,9 +310,34 @@ Todos los colores se controlan desde las variables CSS en `index.css`:
 
 El color del header del chat se define directamente en `ChatWidget.tsx` (`bg-[#a03308]`).
 
+Para la **Opción A (script embed)**, los colores se configuran en `src/widget.css` y se aplican al rebuild con `npm run build:widget`. Como los estilos van embebidos en el JS, no es posible sobreescribir los colores desde CSS externo — cualquier cambio requiere un nuevo build.
+
 ---
 
-## Checklist de integración
+## Scripts disponibles
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Servidor de desarrollo (app completa con HeroSection) |
+| `npm run build` | Build de producción de la app completa |
+| `npm run build:widget` | Build del widget embebible (solo el chat flotante) |
+| `npm run preview` | Vista previa del build de producción |
+
+---
+
+## Checklist de integración (Opción A — Script embed)
+
+- [ ] `npm run build:widget` ejecutado sin errores
+- [ ] Archivo `iwa-chat-widget.js` subido al servidor/CDN (no hay `.css` separado)
+- [ ] Snippet agregado en el footer del sitio destino con `webhookUrl` configurado
+- [ ] Si existía un `<link rel="stylesheet" href="...iwa-chat-widget.css">`, eliminado
+- [ ] CORS configurado en n8n si el dominio es diferente
+- [ ] Flujo probado: botón flotante visible en esquina inferior derecha con colores correctos
+- [ ] Flujo probado: nueva consulta → formulario → folio recibido
+- [ ] Flujo probado: consulta existente → folio válido → tema → respuesta
+- [ ] Flujo probado: folio inválido → mensaje de error → reinicio
+
+## Checklist de integración (Opción B — React)
 
 - [ ] Archivos copiados con la estructura correcta
 - [ ] Tailwind CSS v4 configurado en `vite.config.ts`
