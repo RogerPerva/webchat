@@ -7,7 +7,6 @@ import FloatingChatButton from './components/FloatingChatButton'
 // __IWA_WIDGET_CSS__ is injected at build time by the vite.config.widget.ts plugin
 declare const __IWA_WIDGET_CSS__: string
 
-console.log('[IWA Chat] Widget cargado', window.IWAChatConfig)
 const config = window.IWAChatConfig
 
 if (!config?.webhookUrl) {
