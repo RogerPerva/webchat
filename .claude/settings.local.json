@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx tsc:*)",
       "Bash(npx:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(cd /c/Users/IWA/Documents/Projects/webchat && npm run build:widget 2>&1)"
     ]
   }
 }

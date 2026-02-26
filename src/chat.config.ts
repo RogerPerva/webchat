@@ -4,7 +4,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** URL del webhook de n8n que procesa los mensajes */
-export const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL as string
+export const WEBHOOK_URL =
+  window.IWAChatConfig?.webhookUrl ?? (import.meta.env.VITE_N8N_WEBHOOK_URL as string)
 
 // ── Mensajes del sistema ──────────────────────────────────────────────────────
 

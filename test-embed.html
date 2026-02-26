@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Test Embed - Simula WordPress</title>
+  <link rel="stylesheet" href="./dist-widget/iwa-chat-widget.css" />
+  <style>
+    /* Estilos del "sitio WordPress" simulado */
+    body { font-family: Georgia, serif; background: #f5f5f5; margin: 0; padding: 40px; }
+    h1 { color: #333; }
+    p { color: #666; line-height: 1.6; max-width: 600px; }
+  </style>
+</head>
+<body>
+  <h1>Sitio WordPress Simulado</h1>
+  <p>Este es un sitio de prueba para verificar que el widget de chat se embebe correctamente sin afectar los estilos del host.</p>
+  <p>El botón flotante debería aparecer en la esquina inferior derecha.</p>
+
+  <script>
+    window.IWAChatConfig = {
+      webhookUrl: 'https://iwaconsolti.app.n8n.cloud/webhook-test/iwa-ai',
+      // recaptchaSiteKey: 'tu-key-aqui'  // Descomentar si quieres reCAPTCHA
+    };
+  </script>
+  <script src="./dist-widget/iwa-chat-widget.js"></script>
+</body>
+</html>

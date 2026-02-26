@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react'
-import { useGoogleReCaptcha } from 'react-google-recaptcha-v3'
 import { useChatSession } from '../hooks/useChatSession'
 import ScheduleForm from './ScheduleForm'
 import DateTimePicker from './DateTimePicker'
@@ -7,10 +6,10 @@ import DateTimePicker from './DateTimePicker'
 interface ChatWidgetProps {
   isOpen: boolean
   onClose: () => void
+  executeRecaptcha?: ((action?: string) => Promise<string>) | undefined
 }
 
-export default function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
-  const { executeRecaptcha } = useGoogleReCaptcha()
+export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWidgetProps) {
   const session = useChatSession({ executeRecaptcha })
 
   const inputRef = useRef<HTMLInputElement>(null)
