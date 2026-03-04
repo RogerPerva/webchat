@@ -18,6 +18,9 @@ export const CALENDAR_TRIGGER = 'podría seleccionar una fecha y hora'
 /** Fragmento que n8n incluye cuando el folio ingresado no existe */
 export const INVALID_FOLIO_TRIGGER = 'folio incorrecto'
 
+/** Fragmento que activa el countdown de cierre de sesión (7 min) */
+export const FAREWELL_TRIGGER = 'tu folio para que podamos ayudarte'
+
 // ── Temas para consultas existentes ──────────────────────────────────────────
 // Agrega, quita o edita entradas según los casos de uso del negocio.
 

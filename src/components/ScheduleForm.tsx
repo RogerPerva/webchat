@@ -4,7 +4,6 @@ import { APP_TYPE_OPTIONS } from '../chat.config'
 
 interface ScheduleFormProps {
   onSubmit: (data: AppointmentData) => void
-  onCancel: () => void
 }
 
 type ValidatedField = 'name' | 'phone' | 'email' | 'appType' | 'description'
@@ -12,7 +11,7 @@ type FormErrors = Partial<Record<ValidatedField, string>>
 
 const MAX_DESCRIPTION = 500
 
-export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) {
+export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
   const [form, setForm] = useState<AppointmentData>({
     name: '',
     phone: '',
@@ -153,15 +152,8 @@ export default function ScheduleForm({ onSubmit, onCancel }: ScheduleFormProps) 
 
       <div className="flex gap-2">
         <button
-          type="button"
-          onClick={onCancel}
-          className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-gray-light transition-colors hover:bg-white/10"
-        >
-          Cancelar
-        </button>
-        <button
           type="submit"
-          className="flex-1 rounded-lg bg-primary py-2 text-sm font-semibold text-white transition-opacity hover:opacity-80"
+          className="w-full rounded-lg bg-primary py-2 text-sm font-semibold text-white transition-opacity hover:opacity-80"
         >
           Enviar
         </button>

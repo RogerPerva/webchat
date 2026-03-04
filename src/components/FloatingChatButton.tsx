@@ -40,7 +40,7 @@ function FloatingChatButtonInner({ executeRecaptcha }: FloatingChatButtonInnerPr
         aria-label={isOpen ? 'Cerrar chat' : 'Abrir chat'}
         onClick={handleToggle}
         disabled={isVerifying}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg transition-transform hover:scale-110 active:scale-95 disabled:opacity-70 disabled:cursor-wait"
+        className="fixed bottom-6 right-6 z-50 flex h-[54px] w-[54px] items-center justify-center rounded-full bg-primary text-white shadow-lg transition-transform hover:scale-110 active:scale-95 disabled:opacity-70 disabled:cursor-wait"
       >
         {isVerifying ? (
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">

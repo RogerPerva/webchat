@@ -26,10 +26,12 @@ export interface ChatContext {
 }
 
 // ── ID de sesión ──────────────────────────────────────────────────────────────
-// Se genera una sola vez al cargar el módulo y representa la sesión actual.
+// Se genera mediante una función para poder regenerar el ID al resetear sesión.
 // En consultas nuevas se usa como folio; en existentes el usuario lo reemplaza.
 
-export const CHAT_ID = Math.floor(Math.random() * 900000000) + 100000000
+export function generateChatId(): number {
+  return Math.floor(Math.random() * 900000000) + 100000000
+}
 
 // ── API ───────────────────────────────────────────────────────────────────────
 

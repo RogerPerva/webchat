@@ -195,22 +195,45 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
           </div>
         )}
 
+        {/* Formulario de cita (integrado al flujo del chat) */}
+        {session.showSchedule && (
+          <div className="mt-3 rounded-2xl rounded-bl-sm bg-white/10 p-1">
+            <ScheduleForm onSubmit={session.handleScheduleSubmit} />
+          </div>
+        )}
+
+        {session.farewellCountdown !== null && (
+          <div className="sticky bottom-0 mt-3 rounded-xl bg-white/5 border border-white/10 px-3 py-3 text-center">
+            <p className="text-xs text-white/50">
+              Esta sesión se reiniciará en{' '}
+              <span className="font-semibold text-white/70">
+                {String(Math.floor(session.farewellCountdown / 60)).padStart(2, '0')}:
+                {String(session.farewellCountdown % 60).padStart(2, '0')}
+              </span>
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={session.resetSession}
+                className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-85"
+              >
+                Reiniciar chat
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:bg-white/10"
+              >
+                Cerrar ventana
+              </button>
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Formulario de cita ── */}
-      {session.showSchedule && (
-        <div className="max-h-72 overflow-y-auto border-t border-white/10">
-          <ScheduleForm
-            onSubmit={session.handleScheduleSubmit}
-            onCancel={() => session.setShowSchedule(false)}
-          />
-        </div>
-      )}
-
       {/* ── Área de input ── */}
       <div className="border-t border-white/10 px-4 py-3">
-        {session.showRestart ? (
+        {session.farewellCountdown !== null ? null : session.showRestart ? (
           <p className="text-center text-xs text-white/30">Reinicia el chat para continuar.</p>
         ) : (
           <>

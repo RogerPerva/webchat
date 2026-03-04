@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   sendMessage,
   buildAppointmentText,
-  CHAT_ID,
+  generateChatId,
   type ChatMessage,
   type ChatContext,
   type AppointmentData,
@@ -11,6 +11,7 @@ import {
   INITIAL_USER_MESSAGE,
   CALENDAR_TRIGGER,
   INVALID_FOLIO_TRIGGER,
+  FAREWELL_TRIGGER,
   EXISTING_TOPICS,
 } from '../chat.config'
 
@@ -34,6 +35,7 @@ export interface ChatSession {
   folioInput: string
   folioError: string
   folioConfirmed: boolean
+  farewellCountdown: number | null
 
   // Derivados
   showFolioInput: boolean
@@ -54,6 +56,7 @@ export interface ChatSession {
   handleKeyDown: (e: React.KeyboardEvent) => void
   handleDateTimeConfirm: (isoDate: string) => void
   handleScheduleSubmit: (data: AppointmentData) => void
+  resetSession: () => void
 
   // Constante de configuración para el JSX
   existingTopics: typeof EXISTING_TOPICS
@@ -72,6 +75,7 @@ function createMessage(text: string, sender: 'user' | 'bot'): ChatMessage {
 
 export function useChatSession(options: UseChatSessionOptions = {}): ChatSession {
   const { executeRecaptcha } = options
+  const [chatId, setChatId] = useState(() => generateChatId())
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -83,18 +87,65 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   const [folioError, setFolioError] = useState('')
   const [folioConfirmed, setFolioConfirmed] = useState(false)
   const [hasReceivedFirstReply, setHasReceivedFirstReply] = useState(false)
+  const [farewellCountdown, setFarewellCountdown] = useState<number | null>(null)
 
   // El contexto de sesión vive en una ref para no requerir re-renders
   // y para que doSend siempre lea el valor más reciente.
   const ctxRef = useRef<ChatContext>({
-    chatId: CHAT_ID,
+    chatId,
     isNewConsultation: true,
     userName: 'Visitante',
   })
 
   const appointmentJustSubmitted = useRef(false)
+  const farewellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const folioMessage = `De antemano gracias por haberte puesto en contacto con nosotros. Por favor conserva este folio: ${CHAT_ID}, este nos ayudará a continuar la conversacion en caso de que se cierre o para futuras consultas.`
+  const folioMessage = `De antemano gracias por haberte puesto en contacto con nosotros. Por favor conserva este folio: ${chatId}, este nos ayudará a continuar la conversacion en caso de que se cierre o para futuras consultas.`
+
+  // ── Reset de sesión ───────────────────────────────────────────────────────
+
+  const resetSession = useCallback(() => {
+    const newId = generateChatId()
+    setChatId(newId)
+    ctxRef.current = { chatId: newId, isNewConsultation: true, userName: 'Visitante' }
+    setMessages([])
+    setInput('')
+    setIsLoading(false)
+    setShowSchedule(false)
+    setShowCalendar(false)
+    setShowRestart(false)
+    setChatMode(null)
+    setFolioInput('')
+    setFolioError('')
+    setFolioConfirmed(false)
+    setHasReceivedFirstReply(false)
+    setFarewellCountdown(null)
+  }, [])
+
+  const startFarewellCountdown = useCallback(() => {
+    if (farewellTimerRef.current) return // ya activo, no iniciar de nuevo
+    setFarewellCountdown(7 * 60) // 420 segundos
+    farewellTimerRef.current = setInterval(() => {
+      setFarewellCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(farewellTimerRef.current!)
+          farewellTimerRef.current = null
+          resetSession()
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [resetSession])
+
+  // Limpiar el intervalo al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (farewellTimerRef.current) {
+        clearInterval(farewellTimerRef.current)
+      }
+    }
+  }, [])
 
   // ── Acción central de envío ───────────────────────────────────────────────
 
@@ -129,6 +180,10 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
       if (reply.toLowerCase().includes(INVALID_FOLIO_TRIGGER)) {
         setShowRestart(true)
+      }
+
+      if (reply.toLowerCase().includes(FAREWELL_TRIGGER)) {
+        startFarewellCountdown()
       }
 
       if (!hasReceivedFirstReply) {
@@ -272,6 +327,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     folioInput,
     folioError,
     folioConfirmed,
+    farewellCountdown,
     showFolioInput,
     showTopicSelection,
     inputDisabled,
@@ -290,5 +346,6 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     handleKeyDown,
     handleDateTimeConfirm,
     handleScheduleSubmit,
+    resetSession,
   }
 }
