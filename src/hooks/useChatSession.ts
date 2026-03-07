@@ -100,7 +100,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   const appointmentJustSubmitted = useRef(false)
   const farewellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const folioMessage = `De antemano gracias por haberte puesto en contacto con nosotros. Por favor conserva este folio: ${chatId}, este nos ayudará a continuar la conversacion en caso de que se cierre o para futuras consultas.`
+  const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros. Por favor conserva este folio: ${chatId}, este nos ayudará a continuar la conversacion en caso de perder comunicacion o para futuras consultas.`
 
   // ── Reset de sesión ───────────────────────────────────────────────────────
 

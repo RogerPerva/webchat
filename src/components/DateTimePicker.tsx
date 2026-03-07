@@ -128,7 +128,7 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
           <p className="text-[11px] font-medium text-white/60">Selecciona la hora:</p>
           <div className="flex flex-wrap gap-1.5">
             {HOURS.flatMap((h) =>
-              MINUTES.map((m) => {
+              MINUTES.filter((m) => h < 18 || m === 0).map((m) => {
                 const label = `${pad(h)}:${pad(m)}`
                 const isActive = selectedHour === h && selectedMinute === m
                 return (
