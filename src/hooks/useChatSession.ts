@@ -12,6 +12,7 @@ import {
   CALENDAR_TRIGGER,
   INVALID_FOLIO_TRIGGER,
   FAREWELL_TRIGGER,
+  FAREWELL_COUNTDOWN_SECONDS,
   EXISTING_TOPICS,
 } from '../chat.config'
 
@@ -100,8 +101,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   const appointmentJustSubmitted = useRef(false)
   const farewellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros. Por favor conserva este folio: ${chatId}, este nos ayudará a continuar la conversacion en caso de perder comunicacion o para futuras consultas.`
-
+const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros. Por favor, conserva este folio: ${chatId}, este nos ayudará a continuar la conversación en caso de que se cierre o para futuras consultas.`;
   // ── Reset de sesión ───────────────────────────────────────────────────────
 
   const resetSession = useCallback(() => {
@@ -124,7 +124,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
   const startFarewellCountdown = useCallback(() => {
     if (farewellTimerRef.current) return // ya activo, no iniciar de nuevo
-    setFarewellCountdown(7 * 60) // 420 segundos
+    setFarewellCountdown(FAREWELL_COUNTDOWN_SECONDS)
     farewellTimerRef.current = setInterval(() => {
       setFarewellCountdown((prev) => {
         if (prev === null || prev <= 1) {
