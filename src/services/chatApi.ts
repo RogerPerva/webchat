@@ -30,7 +30,9 @@ export interface ChatContext {
 // En consultas nuevas se usa como folio; en existentes el usuario lo reemplaza.
 
 export function generateChatId(): number {
-  return Math.floor(Math.random() * 900000000) + 100000000
+  const arr = new Uint32Array(1)
+  crypto.getRandomValues(arr)
+  return (arr[0] % 900000000) + 100000000
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────

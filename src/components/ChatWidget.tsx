@@ -67,7 +67,7 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
             </svg>
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-white">Asistente</h2>
+            <h2 className="text-sm font-semibold text-white">AIwana</h2>
             <p className="text-xs text-white/70">En línea</p>
           </div>
         </div>
@@ -165,7 +165,7 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         {session.showRestart && (
           <div className="mb-3 flex justify-center">
             <button
-              onClick={() => window.location.reload()}
+              onClick={session.resetSession}
               className="rounded-xl border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
             >
               Reiniciar chat
