@@ -11,7 +11,17 @@ type FormErrors = Partial<Record<ValidatedField, string>>
 
 const MAX_DESCRIPTION = 500
 
+function formatBudget(raw: string, currency: string): string {
+  if (!raw) return ''
+  const num = parseFloat(raw)
+  if (isNaN(num)) return ''
+  const formatted = num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `$${formatted} ${currency}`
+}
+
 export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
+  const [budgetRaw, setBudgetRaw] = useState('')
+  const [budgetCurrency, setBudgetCurrency] = useState<'USD' | 'MXN'>('MXN')
   const [form, setForm] = useState<AppointmentData>({
     name: '',
     phone: '',
@@ -41,7 +51,10 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
 
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
-    if (validate()) onSubmit(form)
+    if (validate()) {
+      const formatted = formatBudget(budgetRaw, budgetCurrency)
+      onSubmit({ ...form, budget: formatted })
+    }
   }
 
   const updateField = (field: keyof AppointmentData, value: string) => {
@@ -68,6 +81,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
           onChange={(e) => updateField('name', e.target.value)}
           aria-label="Nombre completo"
           aria-invalid={!!errors.name}
+          maxLength={100}
           className={fieldClass('name')}
         />
         {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name}</p>}
@@ -98,6 +112,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
           onChange={(e) => updateField('email', e.target.value)}
           aria-label="Correo electrónico"
           aria-invalid={!!errors.email}
+          maxLength={254}
           className={fieldClass('email')}
         />
         {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email}</p>}
@@ -120,15 +135,31 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
         {errors.appType && <p className="mt-1 text-xs text-red-400">{errors.appType}</p>}
       </div>
 
-      <div>
+      <div className="flex gap-2">
         <input
           type="text"
+          inputMode="decimal"
           placeholder="Presupuesto (opcional)"
-          value={form.budget}
-          onChange={(e) => updateField('budget', e.target.value)}
+          value={budgetRaw}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9.]/g, '')
+            if ((v.match(/\./g) || []).length <= 1) {
+              const num = parseFloat(v)
+              if (v === '' || v === '.' || (!isNaN(num) && num <= 999999999)) setBudgetRaw(v)
+            }
+          }}
           aria-label="Presupuesto"
-          className={optionalFieldClass}
+          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-primary"
         />
+        <select
+          value={budgetCurrency}
+          onChange={(e) => setBudgetCurrency(e.target.value as 'USD' | 'MXN')}
+          aria-label="Moneda"
+          className="w-20 shrink-0 appearance-none rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-center text-sm text-white outline-none transition-colors focus:border-primary"
+        >
+          <option value="MXN" className="bg-dark text-white">MXN</option>
+          <option value="USD" className="bg-dark text-white">USD</option>
+        </select>
       </div>
 
       <div>
