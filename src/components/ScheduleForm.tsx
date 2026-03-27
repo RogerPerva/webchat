@@ -20,6 +20,7 @@ function formatBudget(raw: string, currency: string): string {
 }
 
 export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
+  const [phonePrefix, setPhonePrefix] = useState('+52')
   const [budgetRaw, setBudgetRaw] = useState('')
   const [budgetCurrency, setBudgetCurrency] = useState<'USD' | 'MXN'>('MXN')
   const [form, setForm] = useState<AppointmentData>({
@@ -53,7 +54,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
     ev.preventDefault()
     if (validate()) {
       const formatted = formatBudget(budgetRaw, budgetCurrency)
-      onSubmit({ ...form, budget: formatted })
+      onSubmit({ ...form, phone: `${phonePrefix} ${form.phone}`, budget: formatted })
     }
   }
 
@@ -88,19 +89,56 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
       </div>
 
       <div>
-        <input
-          type="tel"
-          placeholder="Teléfono de contacto (10 dígitos) *"
-          value={form.phone}
-          onChange={(e) => {
-            const value = e.target.value.replace(/\D/g, '')
-            if (value.length <= 10) updateField('phone', value)
-          }}
-          aria-label="Teléfono de contacto"
-          aria-invalid={!!errors.phone}
-          maxLength={10}
-          className={fieldClass('phone')}
-        />
+        <div className="flex gap-2">
+          <select
+            value={phonePrefix}
+            onChange={(e) => setPhonePrefix(e.target.value)}
+            aria-label="Prefijo telefónico"
+            className={`w-28 shrink-0 appearance-none rounded-lg border px-2 py-2 text-center text-sm text-white outline-none transition-colors focus:border-primary ${errors.phone ? 'border-red-500 bg-white/5' : 'border-white/10 bg-white/5'}`}
+          >
+            <option value="+52" className="bg-dark text-white">🇲🇽 +52</option>
+            <option value="+1" className="bg-dark text-white">🇺🇸 +1</option>
+            <option value="+34" className="bg-dark text-white">🇪🇸 +34</option>
+            <option value="+54" className="bg-dark text-white">🇦🇷 +54</option>
+            <option value="+55" className="bg-dark text-white">🇧🇷 +55</option>
+            <option value="+56" className="bg-dark text-white">🇨🇱 +56</option>
+            <option value="+57" className="bg-dark text-white">🇨🇴 +57</option>
+            <option value="+51" className="bg-dark text-white">🇵🇪 +51</option>
+            <option value="+58" className="bg-dark text-white">🇻🇪 +58</option>
+            <option value="+593" className="bg-dark text-white">🇪🇨 +593</option>
+            <option value="+591" className="bg-dark text-white">🇧🇴 +591</option>
+            <option value="+595" className="bg-dark text-white">🇵🇾 +595</option>
+            <option value="+598" className="bg-dark text-white">🇺🇾 +598</option>
+            <option value="+506" className="bg-dark text-white">🇨🇷 +506</option>
+            <option value="+507" className="bg-dark text-white">🇵🇦 +507</option>
+            <option value="+502" className="bg-dark text-white">🇬🇹 +502</option>
+            <option value="+503" className="bg-dark text-white">🇸🇻 +503</option>
+            <option value="+504" className="bg-dark text-white">🇭🇳 +504</option>
+            <option value="+505" className="bg-dark text-white">🇳🇮 +505</option>
+            <option value="+509" className="bg-dark text-white">🇭🇹 +509</option>
+            <option value="+53" className="bg-dark text-white">🇨🇺 +53</option>
+            <option value="+1809" className="bg-dark text-white">🇩🇴 +1809</option>
+            <option value="+501" className="bg-dark text-white">🇧🇿 +501</option>
+            <option value="+592" className="bg-dark text-white">🇬🇾 +592</option>
+            <option value="+597" className="bg-dark text-white">🇸🇷 +597</option>
+            <option value="+594" className="bg-dark text-white">🇬🇫 +594</option>
+            <option value="+1868" className="bg-dark text-white">🇹🇹 +1868</option>
+            <option value="+1876" className="bg-dark text-white">🇯🇲 +1876</option>
+          </select>
+          <input
+            type="tel"
+            placeholder="Teléfono (10 dígitos) *"
+            value={form.phone}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '')
+              if (value.length <= 10) updateField('phone', value)
+            }}
+            aria-label="Teléfono de contacto"
+            aria-invalid={!!errors.phone}
+            maxLength={10}
+            className={`min-w-0 flex-1 rounded-lg border bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-primary ${errors.phone ? 'border-red-500' : 'border-white/10'}`}
+          />
+        </div>
         {errors.phone && <p className="mt-1 text-xs text-red-400">{errors.phone}</p>}
       </div>
 
