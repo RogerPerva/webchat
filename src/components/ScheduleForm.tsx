@@ -27,6 +27,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
     name: '',
     phone: '',
     email: '',
+    company: '',
     appType: '',
     budget: '',
     description: 'Me gustaria orientacion para aterrizar una idea...',
@@ -43,7 +44,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
     if (!form.email.trim()) e.email = 'El correo es requerido'
     else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(form.email)) e.email = 'Ingresa un correo válido'
 
-    if (!form.appType) e.appType = 'Selecciona un tipo de aplicación'
+    if (!form.appType) e.appType = 'Selecciona una opción'
     if (!form.description.trim()) e.description = 'La descripción es requerida'
     else if (form.description.length > MAX_DESCRIPTION) e.description = `Máximo ${MAX_DESCRIPTION} caracteres`
     setErrors(e)
@@ -66,9 +67,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
   }
 
   const baseFieldClass = 'w-full rounded-lg border bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-primary'
-  const fieldClass = (field: ValidatedField) =>
-    `${baseFieldClass} ${errors[field] ? 'border-red-500' : 'border-white/10'}`
-  const optionalFieldClass = `${baseFieldClass} border-white/10`
+  const fieldClass = (field: ValidatedField) => `${baseFieldClass} ${errors[field] ? 'border-red-500' : 'border-white/10'}`
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 px-4 py-4">
@@ -157,15 +156,32 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
       </div>
 
       <div>
+        <input
+          type="text"
+          placeholder="Empresa (opcional)"
+          value={form.company}
+          onChange={(e) => updateField('company', e.target.value)}
+          aria-label="Empresa"
+          maxLength={100}
+          className={`${baseFieldClass} border-white/10`}
+        />
+      </div>
+
+      <div>
         <select
           value={form.appType}
           onChange={(e) => updateField('appType', e.target.value)}
-          aria-label="Tipo de aplicación"
+          aria-label="Etapa del proyecto"
           aria-invalid={!!errors.appType}
           className={`appearance-none ${fieldClass('appType')} ${form.appType ? '' : 'text-white/40!'}`}
         >
-          {APP_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value} className="bg-dark text-white">
+          {APP_TYPE_OPTIONS.map((opt, idx) => (
+            <option
+              key={opt.value}
+              value={opt.value}
+              disabled={idx === 0}
+              className="bg-dark text-white"
+            >
               {opt.label}
             </option>
           ))}

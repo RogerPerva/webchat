@@ -46,10 +46,7 @@ export const EXISTING_TOPICS: { label: string; message: string }[] = [
 // ── Opciones del formulario de nueva consulta ─────────────────────────────────
 
 export const APP_TYPE_OPTIONS: { value: string; label: string }[] = [
-  { value: '',               label: 'Selecciona tipo de aplicación *' },
-  { value: 'Web App',        label: 'Web App' },
-  { value: 'Landing Page',   label: 'Landing Page' },
-  { value: 'Móvil App',      label: 'Móvil App' },
-  { value: 'Automatización', label: 'Automatización' },
-  { value: 'Otra',           label: 'Otra' },
+  { value: '', label: '¿En qué etapa te encuentras? *' },
+  { value: 'Quiero aterrizar una idea', label: 'Quiero aterrizar una idea' },
+  { value: 'Ya tengo los requerimientos', label: 'Ya tengo los requerimientos' },
 ]

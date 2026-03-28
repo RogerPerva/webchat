@@ -13,6 +13,7 @@ export interface AppointmentData {
   name: string
   phone: string
   email: string
+  company: string
   appType: string
   budget: string
   description: string
@@ -75,7 +76,9 @@ export async function sendMessage(text: string, ctx: ChatContext, recaptchaToken
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function buildAppointmentText(data: AppointmentData): string {
-  let text = `Mi nombre es ${data.name}. Mi teléfono es ${data.phone} y mi correo es ${data.email}. Tipo de aplicación: ${data.appType}.`
+  let text = `Mi nombre es ${data.name}`
+  if (data.company) text += `, de la empresa ${data.company}`
+  text += `. Mi teléfono es ${data.phone} y mi correo es ${data.email}. ${data.appType}.`
   if (data.budget) text += ` Mi presupuesto es ${data.budget}.`
   text += ` ${data.description}`
   return text
