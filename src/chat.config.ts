@@ -19,7 +19,7 @@ export const CALENDAR_TRIGGER = 'podría seleccionar una fecha y hora'
 export const INVALID_FOLIO_TRIGGER = 'folio incorrecto'
 
 /** Fragmento que activa el countdown de cierre de sesión */
-export const FAREWELL_TRIGGER = 'tu folio para que podamos ayudarte'
+export const FAREWELL_TRIGGER = 'folio para que podamos ayudarte'
 
 /** Duración del countdown de cierre de sesión en segundos */
 export const FAREWELL_COUNTDOWN_SECONDS = 2 * 60 // 2 minutos
