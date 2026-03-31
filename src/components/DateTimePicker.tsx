@@ -32,8 +32,13 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const [viewMonth, setViewMonth] = useState(today.getMonth())
-  const [viewYear, setViewYear] = useState(today.getFullYear())
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const maxDate = new Date(today.getFullYear(), today.getMonth() + 2, today.getDate())
+
+  const [viewMonth, setViewMonth] = useState(tomorrow.getMonth())
+  const [viewYear, setViewYear] = useState(tomorrow.getFullYear())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [selectedMinute, setSelectedMinute] = useState<number | null>(null)
@@ -51,7 +56,8 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
     else setViewMonth(viewMonth + 1)
   }
 
-  const canGoPrev = viewYear > today.getFullYear() || (viewYear === today.getFullYear() && viewMonth > today.getMonth())
+  const canGoPrev = viewYear > tomorrow.getFullYear() || (viewYear === tomorrow.getFullYear() && viewMonth > tomorrow.getMonth())
+  const canGoNext = viewYear < maxDate.getFullYear() || (viewYear === maxDate.getFullYear() && viewMonth < maxDate.getMonth())
 
   const handleConfirm = () => {
     if (!selectedDate || selectedHour === null || selectedMinute === null) return
@@ -77,7 +83,8 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
         </span>
         <button
           onClick={nextMonth}
-          className="rounded p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+          disabled={!canGoNext}
+          className="rounded p-1 text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:invisible"
           aria-label="Mes siguiente"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
@@ -99,9 +106,10 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
         {Array.from({ length: daysInMonth }, (_, i) => {
           const day = i + 1
           const date = new Date(viewYear, viewMonth, day)
-          const isPast = date < today
+          const isPast = date < tomorrow
+          const isFutureBeyondLimit = date > maxDate
           const isWeekend = date.getDay() === 0 || date.getDay() === 6
-          const disabled = isPast || isWeekend
+          const disabled = isPast || isFutureBeyondLimit || isWeekend
           const isSelected = selectedDate && isSameDay(date, selectedDate)
           const isToday = isSameDay(date, today)
 

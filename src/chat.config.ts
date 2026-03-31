@@ -24,6 +24,9 @@ export const FAREWELL_TRIGGER = 'folio para que podamos ayudarte'
 /** Duración del countdown de cierre de sesión en segundos */
 export const FAREWELL_COUNTDOWN_SECONDS = 2 * 60 // 2 minutos
 
+/** Tiempo de inactividad antes de cerrar la sesión (milisegundos) */
+export const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutos
+
 // ── Temas para consultas existentes ──────────────────────────────────────────
 // Agrega, quita o edita entradas según los casos de uso del negocio.
 

@@ -13,6 +13,7 @@ import {
   INVALID_FOLIO_TRIGGER,
   FAREWELL_TRIGGER,
   FAREWELL_COUNTDOWN_SECONDS,
+  INACTIVITY_TIMEOUT_MS,
   EXISTING_TOPICS,
 } from '../chat.config'
 
@@ -37,6 +38,7 @@ export interface ChatSession {
   folioError: string
   folioConfirmed: boolean
   farewellCountdown: number | null
+  inactivityClosed: boolean
 
   // Derivados
   showFolioInput: boolean
@@ -98,8 +100,11 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     userName: 'Visitante',
   })
 
+  const [inactivityClosed, setInactivityClosed] = useState(false)
+
   const appointmentJustSubmitted = useRef(false)
   const farewellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
 const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros. Por favor, conserva este folio: ${chatId}, este nos ayudará a continuar la conversación en caso de que se cierre o para futuras consultas.`;
   // ── Reset de sesión ───────────────────────────────────────────────────────
@@ -120,6 +125,11 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
     setFolioConfirmed(false)
     setHasReceivedFirstReply(false)
     setFarewellCountdown(null)
+    setInactivityClosed(false)
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = null
+    }
   }, [])
 
   const startFarewellCountdown = useCallback(() => {
@@ -138,12 +148,25 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
     }, 1000)
   }, [resetSession])
 
-  // Limpiar el intervalo al desmontar el componente
-  useEffect(() => {
-    return () => {
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
+    inactivityTimerRef.current = setTimeout(() => {
+      setInactivityClosed(true)
+      setShowRestart(true)
       if (farewellTimerRef.current) {
         clearInterval(farewellTimerRef.current)
+        farewellTimerRef.current = null
       }
+      setFarewellCountdown(null)
+      inactivityTimerRef.current = null
+    }, INACTIVITY_TIMEOUT_MS)
+  }, [])
+
+  // Limpiar intervalos al desmontar el componente
+  useEffect(() => {
+    return () => {
+      if (farewellTimerRef.current) clearInterval(farewellTimerRef.current)
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
     }
   }, [])
 
@@ -165,6 +188,7 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
     appendMessage(createMessage(text, 'user'))
     setInput('')
     setIsLoading(true)
+    resetInactivityTimer()
 
     try {
       // Solo enviar token reCAPTCHA en el primer mensaje de nueva consulta
@@ -328,6 +352,7 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
     folioError,
     folioConfirmed,
     farewellCountdown,
+    inactivityClosed,
     showFolioInput,
     showTopicSelection,
     inputDisabled,

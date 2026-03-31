@@ -161,9 +161,12 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
           </div>
         ))}
 
-        {/* Botón de reinicio (folio inválido) */}
+        {/* Botón de reinicio (folio inválido o inactividad) */}
         {session.showRestart && (
-          <div className="mb-3 flex justify-center">
+          <div className="mb-3 flex flex-col items-center gap-2">
+            {session.inactivityClosed && (
+              <p className="text-xs text-white/50">Hemos tenido que cerrar este chat por inactividad.</p>
+            )}
             <button
               onClick={session.resetSession}
               className="rounded-xl border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
@@ -234,7 +237,9 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
       {/* ── Área de input ── */}
       <div className="border-t border-white/10 px-4 py-3">
         {session.farewellCountdown !== null ? null : session.showRestart ? (
-          <p className="text-center text-xs text-white/30">Reinicia el chat para continuar.</p>
+          <p className="text-center text-xs text-white/30">
+            {session.inactivityClosed ? 'Sesión cerrada por inactividad.' : 'Reinicia el chat para continuar.'}
+          </p>
         ) : (
           <>
             <div className="flex items-center gap-2">
