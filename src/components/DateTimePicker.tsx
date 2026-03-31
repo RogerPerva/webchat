@@ -29,16 +29,26 @@ function isSameDay(a: Date, b: Date) {
 }
 
 export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  // Inicializadores lazy: se calculan una sola vez al montar el componente
+  const [today] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  })
+  const [tomorrow] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + 1)
+    return d
+  })
+  const [maxDate] = useState(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return new Date(d.getFullYear(), d.getMonth() + 2, d.getDate())
+  })
 
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
-  const maxDate = new Date(today.getFullYear(), today.getMonth() + 2, today.getDate())
-
-  const [viewMonth, setViewMonth] = useState(tomorrow.getMonth())
-  const [viewYear, setViewYear] = useState(tomorrow.getFullYear())
+  const [viewMonth, setViewMonth] = useState(() => tomorrow.getMonth())
+  const [viewYear, setViewYear] = useState(() => tomorrow.getFullYear())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [selectedMinute, setSelectedMinute] = useState<number | null>(null)

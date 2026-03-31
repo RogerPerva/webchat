@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   sendMessage,
   buildAppointmentText,
@@ -91,6 +91,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   const [folioConfirmed, setFolioConfirmed] = useState(false)
   const [hasReceivedFirstReply, setHasReceivedFirstReply] = useState(false)
   const [farewellCountdown, setFarewellCountdown] = useState<number | null>(null)
+  const [inactivityClosed, setInactivityClosed] = useState(false)
 
   // El contexto de sesión vive en una ref para no requerir re-renders
   // y para que doSend siempre lea el valor más reciente.
@@ -100,13 +101,18 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     userName: 'Visitante',
   })
 
-  const [inactivityClosed, setInactivityClosed] = useState(false)
+  // Ref espejo para evitar stale closures en doSend
+  const hasReceivedFirstReplyRef = useRef(false)
 
   const appointmentJustSubmitted = useRef(false)
   const farewellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros. Por favor, conserva este folio: ${chatId}, este nos ayudará a continuar la conversación en caso de que se cierre o para futuras consultas.`;
+  const folioMessage = useMemo(
+    () => `Muchas gracias por haberte puesto en contacto con nosotros. Por favor, conserva este folio: ${chatId}, este nos ayudará a continuar la conversación en caso de que se cierre o para futuras consultas.`,
+    [chatId],
+  )
+
   // ── Reset de sesión ───────────────────────────────────────────────────────
 
   const resetSession = useCallback(() => {
@@ -124,6 +130,7 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
     setFolioError('')
     setFolioConfirmed(false)
     setHasReceivedFirstReply(false)
+    hasReceivedFirstReplyRef.current = false
     setFarewellCountdown(null)
     setInactivityClosed(false)
     if (inactivityTimerRef.current) {
@@ -184,6 +191,27 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
     }
   }, [executeRecaptcha])
 
+  /** Procesa la respuesta del bot: triggers, primera respuesta, folio */
+  const processBotReply = (reply: string) => {
+    appendMessage(createMessage(reply, 'bot'))
+    const lower = reply.toLowerCase()
+
+    if (lower.includes(CALENDAR_TRIGGER)) setShowCalendar(true)
+    if (lower.includes(INVALID_FOLIO_TRIGGER)) setShowRestart(true)
+    if (lower.includes(FAREWELL_TRIGGER)) startFarewellCountdown()
+
+    if (!hasReceivedFirstReplyRef.current) {
+      hasReceivedFirstReplyRef.current = true
+      setHasReceivedFirstReply(true)
+      if (ctxRef.current.isNewConsultation) setShowSchedule(true)
+    }
+
+    if (appointmentJustSubmitted.current) {
+      appointmentJustSubmitted.current = false
+      appendMessage(createMessage(folioMessage, 'bot'))
+    }
+  }
+
   const doSend = async (text: string, isFirstMessage = false) => {
     appendMessage(createMessage(text, 'user'))
     setInput('')
@@ -191,36 +219,11 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
     resetInactivityTimer()
 
     try {
-      // Solo enviar token reCAPTCHA en el primer mensaje de nueva consulta
       const token = (isFirstMessage && ctxRef.current.isNewConsultation)
         ? await getRecaptchaToken()
         : undefined
       const reply = await sendMessage(text, ctxRef.current, token)
-      appendMessage(createMessage(reply, 'bot'))
-
-      if (reply.toLowerCase().includes(CALENDAR_TRIGGER)) {
-        setShowCalendar(true)
-      }
-
-      if (reply.toLowerCase().includes(INVALID_FOLIO_TRIGGER)) {
-        setShowRestart(true)
-      }
-
-      if (reply.toLowerCase().includes(FAREWELL_TRIGGER)) {
-        startFarewellCountdown()
-      }
-
-      if (!hasReceivedFirstReply) {
-        setHasReceivedFirstReply(true)
-        if (ctxRef.current.isNewConsultation) {
-          setShowSchedule(true)
-        }
-      }
-
-      if (appointmentJustSubmitted.current) {
-        appointmentJustSubmitted.current = false
-        appendMessage(createMessage(folioMessage, 'bot'))
-      }
+      processBotReply(reply)
     } catch {
       appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
     } finally {
@@ -273,41 +276,28 @@ const folioMessage = `Muchas gracias por haberte puesto en contacto con nosotros
 
   const handleDateTimeConfirm = (isoDate: string) => {
     setShowCalendar(false)
-    // Formatear fecha para mostrar de forma más estética
+    resetInactivityTimer()
+
     const date = new Date(isoDate)
-    const options: Intl.DateTimeFormatOptions = {
+    const formattedDate = date.toLocaleDateString('es-MX', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }
-    const formattedDate = date.toLocaleDateString('es-MX', options)
+    })
 
-    // Mensaje visual estético, pero el payload al backend usa ISO
+    // Mensaje visual estético para el usuario, payload ISO para el backend
     const userMessage = `Tengo disponibilidad para la fecha: ${formattedDate}`
     const payloadMessage = `Tengo disponibilidad para la fecha: ${isoDate}`
 
-    // Mostrar mensaje estético al usuario
     appendMessage(createMessage(userMessage, 'user'))
     setInput('')
     setIsLoading(true)
 
-    // Enviar con formato ISO al backend
     sendMessage(payloadMessage, ctxRef.current, undefined)
-      .then((reply) => {
-        appendMessage(createMessage(reply, 'bot'))
-
-        // Verificar si el bot quiere mostrar el calendario de nuevo
-        if (reply.toLowerCase().includes(CALENDAR_TRIGGER)) {
-          setShowCalendar(true)
-        }
-
-        if (reply.toLowerCase().includes(INVALID_FOLIO_TRIGGER)) {
-          setShowRestart(true)
-        }
-      })
+      .then((reply) => processBotReply(reply))
       .catch(() => {
         appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
       })
