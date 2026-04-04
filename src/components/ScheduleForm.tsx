@@ -6,7 +6,7 @@ interface ScheduleFormProps {
   onSubmit: (data: AppointmentData) => void
 }
 
-type ValidatedField = 'name' | 'phone' | 'email' | 'appType' | 'description'
+type ValidatedField = 'name' | 'phone' | 'email' | 'appType' | 'description' | 'canInvest'
 type FormErrors = Partial<Record<ValidatedField, string>>
 
 const MAX_DESCRIPTION = 500
@@ -31,6 +31,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
     appType: '',
     budget: '',
     description: 'Me gustaria orientacion para aterrizar una idea...',
+    canInvest: '',
   })
   const [errors, setErrors] = useState<FormErrors>({})
 
@@ -47,6 +48,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
     if (!form.appType) e.appType = 'Selecciona una opción'
     if (!form.description.trim()) e.description = 'La descripción es requerida'
     else if (form.description.length > MAX_DESCRIPTION) e.description = `Máximo ${MAX_DESCRIPTION} caracteres`
+    if (!form.canInvest) e.canInvest = 'Selecciona una opción'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -171,7 +173,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
         <select
           value={form.appType}
           onChange={(e) => updateField('appType', e.target.value)}
-          aria-label="Etapa del proyecto"
+          aria-label="Cómo te identificarías"
           aria-invalid={!!errors.appType}
           className={`appearance-none ${fieldClass('appType')} ${form.appType ? '' : 'text-white/40!'}`}
         >
@@ -227,12 +229,25 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
           maxLength={MAX_DESCRIPTION}
           className={`resize-none ${fieldClass('description')}`}
         />
-        <div className="mt-1 flex justify-between">
-          {errors.description
-            ? <p className="text-xs text-red-400">{errors.description}</p>
-            : <span />}
-          <p className="text-xs text-white/30">{form.description.length}/{MAX_DESCRIPTION}</p>
-        </div>
+        {errors.description && <p className="mt-1 text-xs text-red-400">{errors.description}</p>}
+      </div>
+
+      <div>
+        <p className="mb-2 text-xs text-white/70">
+          Los proyectos de software pueden comenzar a partir de 6,000 USD a 20,000 USD en el mercado. ¿Cuentas con la posibilidad de invertir el total o en cuotas? *
+        </p>
+        <select
+          value={form.canInvest}
+          onChange={(e) => updateField('canInvest', e.target.value)}
+          aria-label="Posibilidad de inversión"
+          aria-invalid={!!errors.canInvest}
+          className={`appearance-none ${fieldClass('canInvest')} ${form.canInvest ? '' : 'text-white/40!'}`}
+        >
+          <option value="" disabled className="bg-dark text-white">Selecciona una opción *</option>
+          <option value="si" className="bg-dark text-white">Sí, podría invertir esos valores</option>
+          <option value="no" className="bg-dark text-white">No puedo invertir en mi proyecto en este momento</option>
+        </select>
+        {errors.canInvest && <p className="mt-1 text-xs text-red-400">{errors.canInvest}</p>}
       </div>
 
       <div className="flex gap-2">

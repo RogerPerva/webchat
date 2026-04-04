@@ -212,7 +212,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     }
   }
 
-  const doSend = async (text: string, isFirstMessage = false) => {
+  const doSend = async (text: string, isFirstMessage = false, extra?: Record<string, string>) => {
     appendMessage(createMessage(text, 'user'))
     setInput('')
     setIsLoading(true)
@@ -222,7 +222,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
       const token = (isFirstMessage && ctxRef.current.isNewConsultation)
         ? await getRecaptchaToken()
         : undefined
-      const reply = await sendMessage(text, ctxRef.current, token)
+      const reply = await sendMessage(text, ctxRef.current, token, extra)
       processBotReply(reply)
     } catch {
       appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
@@ -313,7 +313,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
       userName: data.name.trim().split(/\s+/)[0] || 'Visitante',
     }
     appointmentJustSubmitted.current = true
-    doSend(buildAppointmentText(data))
+    doSend(buildAppointmentText(data), false, { canInvest: data.canInvest })
   }
 
   // ── Valores derivados ─────────────────────────────────────────────────────

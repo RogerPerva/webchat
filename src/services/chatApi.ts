@@ -17,6 +17,7 @@ export interface AppointmentData {
   appType: string
   budget: string
   description: string
+  canInvest: string
 }
 
 /** Contexto de sesión que acompaña cada mensaje enviado a n8n */
@@ -38,7 +39,7 @@ export function generateChatId(): number {
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
-function buildPayload(text: string, ctx: ChatContext, recaptchaToken?: string) {
+function buildPayload(text: string, ctx: ChatContext, recaptchaToken?: string, extra?: Record<string, string>) {
   return {
     message: {
       from: { id: ctx.chatId, first_name: ctx.userName },
@@ -47,14 +48,15 @@ function buildPayload(text: string, ctx: ChatContext, recaptchaToken?: string) {
     },
     nueva_consulta: ctx.isNewConsultation,
     ...(recaptchaToken ? { recaptchaToken } : {}),
+    ...(extra ?? {}),
   }
 }
 
-export async function sendMessage(text: string, ctx: ChatContext, recaptchaToken?: string): Promise<string> {
+export async function sendMessage(text: string, ctx: ChatContext, recaptchaToken?: string, extra?: Record<string, string>): Promise<string> {
   const response = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildPayload(text, ctx, recaptchaToken)),
+    body: JSON.stringify(buildPayload(text, ctx, recaptchaToken, extra)),
   })
 
   if (!response.ok) {
