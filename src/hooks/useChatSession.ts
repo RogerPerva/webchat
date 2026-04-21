@@ -212,16 +212,14 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     }
   }
 
-  const doSend = async (text: string, isFirstMessage = false, extra?: Record<string, string>) => {
+  const doSend = async (text: string, _isFirstMessage = false, extra?: Record<string, string>) => {
     appendMessage(createMessage(text, 'user'))
     setInput('')
     setIsLoading(true)
     resetInactivityTimer()
 
     try {
-      const token = (isFirstMessage && ctxRef.current.isNewConsultation)
-        ? await getRecaptchaToken()
-        : undefined
+      const token = await getRecaptchaToken()
       const reply = await sendMessage(text, ctxRef.current, token, extra)
       processBotReply(reply)
     } catch {
@@ -296,7 +294,8 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     setInput('')
     setIsLoading(true)
 
-    sendMessage(payloadMessage, ctxRef.current, undefined)
+    getRecaptchaToken()
+      .then((token) => sendMessage(payloadMessage, ctxRef.current, token))
       .then((reply) => processBotReply(reply))
       .catch(() => {
         appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
