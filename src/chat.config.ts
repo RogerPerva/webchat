@@ -27,6 +27,28 @@ export const FAREWELL_COUNTDOWN_SECONDS = 2 * 60 // 2 minutos
 /** Tiempo de inactividad antes de cerrar la sesión (milisegundos) */
 export const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutos
 
+// ── Folio y OTP ───────────────────────────────────────────────────────────────
+
+/** Longitud del folio de sesión (10 dígitos numéricos) */
+export const FOLIO_LENGTH = 10
+
+/** Longitud del código OTP (3 letras + 3 números, formato XXX-XXX al mostrar) */
+export const OTP_LENGTH = 6
+
+/** Cooldown entre reenvíos de OTP (ms) */
+export const OTP_RESEND_COOLDOWN_MS = 60 * 1000 // 1 minuto
+
+/** Mensaje genérico al enviar OTP (no revelar si el folio existe o no) */
+export const OTP_SENT_MESSAGE =
+  'Hemos enviado un código a tu correo registrado con el folio que ingresaste. Ingrésalo para continuar.'
+
+/** Mensaje genérico de error en validación OTP */
+export const OTP_ERROR_MESSAGE = 'No pudimos verificar tu información. Revisa el código e intenta de nuevo.'
+
+/** Mensaje cuando la sesión verificada expira mid-conversación */
+export const SESSION_EXPIRED_MESSAGE =
+  'Tu sesión expiró por seguridad. Ingresa de nuevo el código que te enviamos por correo.'
+
 // ── Temas para consultas existentes ──────────────────────────────────────────
 // Agrega, quita o edita entradas según los casos de uso del negocio.
 

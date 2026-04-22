@@ -2,9 +2,12 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   sendMessage,
   buildAppointmentText,
-  generateChatId,
+  generateFolio,
+  requestOtp,
+  verifyOtp,
   type ChatMessage,
   type ChatContext,
+  type ChatIntent,
   type AppointmentData,
 } from '../services/chatApi'
 import {
@@ -15,6 +18,12 @@ import {
   FAREWELL_COUNTDOWN_SECONDS,
   INACTIVITY_TIMEOUT_MS,
   EXISTING_TOPICS,
+  FOLIO_LENGTH,
+  OTP_LENGTH,
+  OTP_RESEND_COOLDOWN_MS,
+  OTP_SENT_MESSAGE,
+  OTP_ERROR_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
 } from '../chat.config'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -26,7 +35,6 @@ export interface UseChatSessionOptions {
 }
 
 export interface ChatSession {
-  // Estado
   messages: ChatMessage[]
   input: string
   isLoading: boolean
@@ -40,20 +48,28 @@ export interface ChatSession {
   farewellCountdown: number | null
   inactivityClosed: boolean
 
-  // Derivados
+  awaitingOtp: boolean
+  otpInput: string
+  otpError: string
+  otpResendSeconds: number
+
   showFolioInput: boolean
+  showOtpInput: boolean
   showTopicSelection: boolean
   inputDisabled: boolean
   inputPlaceholder: string
 
-  // Handlers
   setInput: (v: string) => void
   setFolioInput: (v: string) => void
   clearFolioError: () => void
+  setOtpInput: (v: string) => void
+  clearOtpError: () => void
   setShowSchedule: (v: boolean) => void
   handleNewConsultation: () => void
   handleExistingConsultation: () => void
   handleFolioSubmit: () => void
+  handleOtpSubmit: () => void
+  handleResendOtp: () => void
   handleTopicSelect: (message: string) => void
   handleSend: () => void
   handleKeyDown: (e: React.KeyboardEvent) => void
@@ -61,24 +77,34 @@ export interface ChatSession {
   handleScheduleSubmit: (data: AppointmentData) => void
   resetSession: () => void
 
-  // Constante de configuración para el JSX
   existingTopics: typeof EXISTING_TOPICS
-
-  // Mensaje de cierre con folio
   folioMessage: string
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function createMessage(text: string, sender: 'user' | 'bot'): ChatMessage {
   return { id: crypto.randomUUID(), text, sender, timestamp: new Date() }
+}
+
+// OTP: 3 letras A-Z (sin ambiguos) + 3 números (sin ambiguos). Display: XXX-XXX
+const OTP_DISPLAY_REGEX = /^[A-HJ-NP-Z0-9]{3}-?[A-HJ-NP-Z0-9]{3}$/i
+
+function normalizeOtp(raw: string): string {
+  return raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, OTP_LENGTH)
+}
+
+function formatOtpDisplay(raw: string): string {
+  const n = normalizeOtp(raw)
+  if (n.length <= 3) return n
+  return `${n.slice(0, 3)}-${n.slice(3)}`
 }
 
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useChatSession(options: UseChatSessionOptions = {}): ChatSession {
   const { executeRecaptcha } = options
-  const [chatId, setChatId] = useState(() => generateChatId())
+  const [folio, setFolio] = useState(() => generateFolio())
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -89,36 +115,38 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   const [folioInput, setFolioInput] = useState('')
   const [folioError, setFolioError] = useState('')
   const [folioConfirmed, setFolioConfirmed] = useState(false)
-  const [hasReceivedFirstReply, setHasReceivedFirstReply] = useState(false)
+  const [, setHasReceivedFirstReply] = useState(false)
   const [farewellCountdown, setFarewellCountdown] = useState<number | null>(null)
   const [inactivityClosed, setInactivityClosed] = useState(false)
 
-  // El contexto de sesión vive en una ref para no requerir re-renders
-  // y para que doSend siempre lea el valor más reciente.
+  const [awaitingOtp, setAwaitingOtp] = useState(false)
+  const [otpInput, setOtpInputState] = useState('')
+  const [otpError, setOtpError] = useState('')
+  const [otpResendSeconds, setOtpResendSeconds] = useState(0)
+
   const ctxRef = useRef<ChatContext>({
-    chatId,
-    isNewConsultation: true,
+    folio,
+    intent: 'new',
     userName: 'Visitante',
   })
 
-  // Ref espejo para evitar stale closures en doSend
   const hasReceivedFirstReplyRef = useRef(false)
-
   const appointmentJustSubmitted = useRef(false)
   const farewellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const otpResendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const folioMessage = useMemo(
-    () => `Muchas gracias por haberte puesto en contacto con nosotros. Por favor, conserva este folio: ${chatId}, este nos ayudará a continuar la conversación en caso de que se cierre o para futuras consultas.`,
-    [chatId],
+    () => `Muchas gracias por haberte puesto en contacto con nosotros. Por favor, conserva este folio: ${folio}, este nos ayudará a continuar la conversación en caso de que se cierre o para futuras consultas.`,
+    [folio],
   )
 
   // ── Reset de sesión ───────────────────────────────────────────────────────
 
   const resetSession = useCallback(() => {
-    const newId = generateChatId()
-    setChatId(newId)
-    ctxRef.current = { chatId: newId, isNewConsultation: true, userName: 'Visitante' }
+    const newFolio = generateFolio()
+    setFolio(newFolio)
+    ctxRef.current = { folio: newFolio, intent: 'new', userName: 'Visitante' }
     setMessages([])
     setInput('')
     setIsLoading(false)
@@ -133,14 +161,22 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     hasReceivedFirstReplyRef.current = false
     setFarewellCountdown(null)
     setInactivityClosed(false)
+    setAwaitingOtp(false)
+    setOtpInputState('')
+    setOtpError('')
+    setOtpResendSeconds(0)
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current)
       inactivityTimerRef.current = null
     }
+    if (otpResendTimerRef.current) {
+      clearInterval(otpResendTimerRef.current)
+      otpResendTimerRef.current = null
+    }
   }, [])
 
   const startFarewellCountdown = useCallback(() => {
-    if (farewellTimerRef.current) return // ya activo, no iniciar de nuevo
+    if (farewellTimerRef.current) return
     setFarewellCountdown(FAREWELL_COUNTDOWN_SECONDS)
     farewellTimerRef.current = setInterval(() => {
       setFarewellCountdown((prev) => {
@@ -169,18 +205,15 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     }, INACTIVITY_TIMEOUT_MS)
   }, [])
 
-  // Limpiar intervalos al desmontar el componente
   useEffect(() => {
     return () => {
       if (farewellTimerRef.current) clearInterval(farewellTimerRef.current)
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
+      if (otpResendTimerRef.current) clearInterval(otpResendTimerRef.current)
     }
   }, [])
 
-  // ── Acción central de envío ───────────────────────────────────────────────
-
-  const appendMessage = (msg: ChatMessage) =>
-    setMessages((prev) => [...prev, msg])
+  // ── reCAPTCHA ─────────────────────────────────────────────────────────────
 
   const getRecaptchaToken = useCallback(async (): Promise<string | undefined> => {
     if (!executeRecaptcha) return undefined
@@ -191,7 +224,28 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     }
   }, [executeRecaptcha])
 
-  /** Procesa la respuesta del bot: triggers, primera respuesta, folio */
+  // ── OTP resend cooldown ───────────────────────────────────────────────────
+
+  const startOtpResendCooldown = useCallback(() => {
+    setOtpResendSeconds(Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000))
+    if (otpResendTimerRef.current) clearInterval(otpResendTimerRef.current)
+    otpResendTimerRef.current = setInterval(() => {
+      setOtpResendSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(otpResendTimerRef.current!)
+          otpResendTimerRef.current = null
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [])
+
+  // ── Envío de mensajes ─────────────────────────────────────────────────────
+
+  const appendMessage = (msg: ChatMessage) =>
+    setMessages((prev) => [...prev, msg])
+
   const processBotReply = (reply: string) => {
     appendMessage(createMessage(reply, 'bot'))
     const lower = reply.toLowerCase()
@@ -203,7 +257,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     if (!hasReceivedFirstReplyRef.current) {
       hasReceivedFirstReplyRef.current = true
       setHasReceivedFirstReply(true)
-      if (ctxRef.current.isNewConsultation) setShowSchedule(true)
+      if (ctxRef.current.intent === 'new') setShowSchedule(true)
     }
 
     if (appointmentJustSubmitted.current) {
@@ -212,7 +266,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     }
   }
 
-  const doSend = async (text: string, _isFirstMessage = false, extra?: Record<string, string>) => {
+  const doSend = async (text: string, extra?: Record<string, string>) => {
     appendMessage(createMessage(text, 'user'))
     setInput('')
     setIsLoading(true)
@@ -222,6 +276,10 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
       const token = await getRecaptchaToken()
       const reply = await sendMessage(text, ctxRef.current, token, extra)
       processBotReply(reply)
+      // Después del primer mensaje exitoso, toda conversación posterior es "continue".
+      if (ctxRef.current.intent === 'new') {
+        ctxRef.current = { ...ctxRef.current, intent: 'continue' }
+      }
     } catch {
       appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
     } finally {
@@ -232,27 +290,85 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleNewConsultation = () => {
-    ctxRef.current = { ...ctxRef.current, isNewConsultation: true }
+    ctxRef.current = { ...ctxRef.current, intent: 'new' }
     setChatMode('new')
-    doSend(INITIAL_USER_MESSAGE, true)
+    doSend(INITIAL_USER_MESSAGE)
   }
 
   const handleExistingConsultation = () => {
-    ctxRef.current = { ...ctxRef.current, isNewConsultation: false }
+    ctxRef.current = { ...ctxRef.current, intent: 'resume' }
     setChatMode('existing')
   }
 
+  const folioRegex = useMemo(
+    () => new RegExp(`^\\d{${FOLIO_LENGTH}}$`),
+    [],
+  )
+
+  const requestOtpForFolio = useCallback(async (folioValue: string) => {
+    setIsLoading(true)
+    try {
+      const token = await getRecaptchaToken()
+      await requestOtp(folioValue, token)
+      appendMessage(createMessage(OTP_SENT_MESSAGE, 'bot'))
+      setAwaitingOtp(true)
+      startOtpResendCooldown()
+    } catch {
+      appendMessage(createMessage('Lo siento, hubo un error al enviar el código. Intenta de nuevo.', 'bot'))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [getRecaptchaToken, startOtpResendCooldown])
+
   const handleFolioSubmit = () => {
-    const folio = folioInput.trim()
-    if (!folio || isLoading) return
-    if (!/^\d{9}$/.test(folio)) {
-      setFolioError('El folio debe ser un número de 9 dígitos.')
+    const folioValue = folioInput.trim()
+    if (!folioValue || isLoading) return
+    if (!folioRegex.test(folioValue)) {
+      setFolioError(`El folio debe ser un número de ${FOLIO_LENGTH} dígitos.`)
       return
     }
-    ctxRef.current = { ...ctxRef.current, chatId: parseInt(folio, 10) }
+    ctxRef.current = { ...ctxRef.current, folio: folioValue, intent: 'resume' }
+    setFolio(folioValue)
     setFolioInput('')
     setFolioError('')
     setFolioConfirmed(true)
+    void requestOtpForFolio(folioValue)
+  }
+
+  const setOtpInput = (raw: string) => {
+    setOtpInputState(formatOtpDisplay(raw))
+    if (otpError) setOtpError('')
+  }
+
+  const handleOtpSubmit = async () => {
+    const otp = normalizeOtp(otpInput)
+    if (otp.length !== OTP_LENGTH || isLoading) return
+    if (!OTP_DISPLAY_REGEX.test(otpInput)) {
+      setOtpError(OTP_ERROR_MESSAGE)
+      return
+    }
+    setIsLoading(true)
+    try {
+      const token = await getRecaptchaToken()
+      const ok = await verifyOtp(ctxRef.current.folio, otp, token)
+      if (ok) {
+        ctxRef.current = { ...ctxRef.current, intent: 'continue' }
+        setAwaitingOtp(false)
+        setOtpInputState('')
+        setOtpError('')
+      } else {
+        setOtpError(OTP_ERROR_MESSAGE)
+      }
+    } catch {
+      setOtpError(OTP_ERROR_MESSAGE)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (otpResendSeconds > 0 || isLoading) return
+    await requestOtpForFolio(ctxRef.current.folio)
   }
 
   const handleTopicSelect = (message: string) => {
@@ -286,7 +402,6 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
       minute: '2-digit',
     })
 
-    // Mensaje visual estético para el usuario, payload ISO para el backend
     const userMessage = `Tengo disponibilidad para la fecha: ${formattedDate}`
     const payloadMessage = `Tengo disponibilidad para la fecha: ${isoDate}`
 
@@ -312,18 +427,27 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
       userName: data.name.trim().split(/\s+/)[0] || 'Visitante',
     }
     appointmentJustSubmitted.current = true
-    doSend(buildAppointmentText(data), false, { canInvest: data.canInvest })
+    doSend(buildAppointmentText(data), { canInvest: data.canInvest })
   }
 
   // ── Valores derivados ─────────────────────────────────────────────────────
 
   const showFolioInput = chatMode === 'existing' && !folioConfirmed
-  const showTopicSelection = chatMode === 'existing' && folioConfirmed && messages.length === 0
-  const inputDisabled = chatMode === null || showFolioInput || showTopicSelection || showSchedule || showCalendar
+  const showOtpInput = chatMode === 'existing' && folioConfirmed && awaitingOtp
+  const showTopicSelection =
+    chatMode === 'existing' && folioConfirmed && !awaitingOtp && messages.length === 0
+  const inputDisabled =
+    chatMode === null ||
+    showFolioInput ||
+    showOtpInput ||
+    showTopicSelection ||
+    showSchedule ||
+    showCalendar
 
   const inputPlaceholder =
     chatMode === null        ? 'Selecciona una opción arriba...' :
     showFolioInput           ? 'Ingresa tu folio arriba...' :
+    showOtpInput             ? 'Ingresa el código enviado por correo...' :
     showTopicSelection       ? 'Selecciona un tema arriba...' :
     showSchedule             ? 'Completa el formulario arriba' :
     showCalendar             ? 'Selecciona fecha y hora arriba' :
@@ -342,7 +466,12 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     folioConfirmed,
     farewellCountdown,
     inactivityClosed,
+    awaitingOtp,
+    otpInput,
+    otpError,
+    otpResendSeconds,
     showFolioInput,
+    showOtpInput,
     showTopicSelection,
     inputDisabled,
     inputPlaceholder,
@@ -351,10 +480,14 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     setInput,
     setFolioInput,
     clearFolioError: () => setFolioError(''),
+    setOtpInput,
+    clearOtpError: () => setOtpError(''),
     setShowSchedule,
     handleNewConsultation,
     handleExistingConsultation,
     handleFolioSubmit,
+    handleOtpSubmit,
+    handleResendOtp,
     handleTopicSelect,
     handleSend,
     handleKeyDown,
