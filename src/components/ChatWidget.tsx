@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useChatSession } from '../hooks/useChatSession'
-import { FOLIO_LENGTH } from '../chat.config'
+import { FOLIO_LENGTH, OTP_SENT_MESSAGE } from '../chat.config'
 import ScheduleForm from './ScheduleForm'
 import DateTimePicker from './DateTimePicker'
 
@@ -132,10 +132,23 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         )}
 
         {/* Paso 1.5 – Ingreso de OTP (después del folio, antes del tema) */}
-        {session.showOtpInput && (
+        {session.showOtpInput && session.otpRateLimited && (
           <div className="flex h-full flex-col items-center justify-center gap-3">
-            <p className="text-center text-sm font-medium text-white/80">
-              Ingresa el código<br />enviado a tu correo.
+            <p className="px-2 text-center text-sm font-medium text-red-300">
+              {session.otpRateLimitedMessage}
+            </p>
+            <button
+              onClick={session.resetSession}
+              className="rounded-xl border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
+            >
+              Reiniciar chat
+            </button>
+          </div>
+        )}
+        {session.showOtpInput && !session.otpRateLimited && (
+          <div className="flex h-full flex-col items-center justify-center gap-3">
+            <p className="px-2 text-center text-xs leading-relaxed text-white/70">
+              {OTP_SENT_MESSAGE}
             </p>
             <div className="w-full space-y-1.5">
               <div className="flex w-full gap-2">
@@ -219,8 +232,8 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
           </div>
         )}
 
-        {/* Indicador de carga */}
-        {session.isLoading && (
+        {/* Indicador de carga (solo cuando ya hay conversación, no en folio/OTP/temas) */}
+        {session.isLoading && session.messages.length > 0 && (
           <div className="mb-3 flex justify-start">
             <div className="rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2 text-sm text-gray-light">
               <span className="inline-flex gap-1">

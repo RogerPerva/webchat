@@ -49,6 +49,13 @@ export const OTP_ERROR_MESSAGE = 'No pudimos verificar tu información. Revisa e
 export const SESSION_EXPIRED_MESSAGE =
   'Tu sesión expiró por seguridad. Ingresa de nuevo el código que te enviamos por correo.'
 
+/** Mensaje cuando se excede el límite de envíos de OTP por hora */
+export const OTP_RATE_LIMITED_MESSAGE =
+  'Máximo de intentos alcanzado. Contáctanos por correo para continuar.'
+
+/** Duración del bloqueo client-side cuando el server devuelve RATE_LIMITED (ms) */
+export const OTP_RATE_LIMIT_TTL_MS = 60 * 60 * 1000 // 1 hora
+
 // ── Temas para consultas existentes ──────────────────────────────────────────
 // Agrega, quita o edita entradas según los casos de uso del negocio.
 

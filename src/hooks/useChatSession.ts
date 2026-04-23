@@ -21,9 +21,10 @@ import {
   FOLIO_LENGTH,
   OTP_LENGTH,
   OTP_RESEND_COOLDOWN_MS,
-  OTP_SENT_MESSAGE,
   OTP_ERROR_MESSAGE,
   SESSION_EXPIRED_MESSAGE,
+  OTP_RATE_LIMITED_MESSAGE,
+  OTP_RATE_LIMIT_TTL_MS,
 } from '../chat.config'
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -52,6 +53,8 @@ export interface ChatSession {
   otpInput: string
   otpError: string
   otpResendSeconds: number
+  otpRateLimited: boolean
+  otpRateLimitedMessage: string
 
   showFolioInput: boolean
   showOtpInput: boolean
@@ -100,6 +103,36 @@ function formatOtpDisplay(raw: string): string {
   return `${n.slice(0, 3)}-${n.slice(3)}`
 }
 
+// Bloqueo de OTP por exceso de envíos: persiste en localStorage por folio.
+const RATE_LIMIT_KEY_PREFIX = 'iwa_otp_blocked_'
+
+function rateLimitKey(folio: string) {
+  return `${RATE_LIMIT_KEY_PREFIX}${folio}`
+}
+
+function readRateLimit(folio: string): number | null {
+  try {
+    const raw = localStorage.getItem(rateLimitKey(folio))
+    if (!raw) return null
+    const expiresAt = Number(raw)
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+      localStorage.removeItem(rateLimitKey(folio))
+      return null
+    }
+    return expiresAt
+  } catch {
+    return null
+  }
+}
+
+function writeRateLimit(folio: string, expiresAt: number): void {
+  try {
+    localStorage.setItem(rateLimitKey(folio), String(expiresAt))
+  } catch {
+    /* localStorage no disponible: bloqueo solo en memoria de sesión */
+  }
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useChatSession(options: UseChatSessionOptions = {}): ChatSession {
@@ -123,6 +156,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   const [otpInput, setOtpInputState] = useState('')
   const [otpError, setOtpError] = useState('')
   const [otpResendSeconds, setOtpResendSeconds] = useState(0)
+  const [rateLimitedAt, setRateLimitedAt] = useState<number | null>(null)
 
   const ctxRef = useRef<ChatContext>({
     folio,
@@ -165,6 +199,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     setOtpInputState('')
     setOtpError('')
     setOtpResendSeconds(0)
+    setRateLimitedAt(null)
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current)
       inactivityTimerRef.current = null
@@ -212,6 +247,17 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
       if (otpResendTimerRef.current) clearInterval(otpResendTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (rateLimitedAt === null) return
+    const remaining = rateLimitedAt - Date.now()
+    if (remaining <= 0) {
+      setRateLimitedAt(null)
+      return
+    }
+    const t = setTimeout(() => setRateLimitedAt(null), remaining)
+    return () => clearTimeout(t)
+  }, [rateLimitedAt])
 
   // ── reCAPTCHA ─────────────────────────────────────────────────────────────
 
@@ -305,20 +351,30 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     [],
   )
 
+  const applyRateLimit = useCallback((folioValue: string) => {
+    const expiresAt = Date.now() + OTP_RATE_LIMIT_TTL_MS
+    writeRateLimit(folioValue, expiresAt)
+    setRateLimitedAt(expiresAt)
+  }, [])
+
   const requestOtpForFolio = useCallback(async (folioValue: string) => {
+    setAwaitingOtp(true)
+    setOtpError('')
     setIsLoading(true)
     try {
       const token = await getRecaptchaToken()
-      await requestOtp(folioValue, token)
-      appendMessage(createMessage(OTP_SENT_MESSAGE, 'bot'))
-      setAwaitingOtp(true)
-      startOtpResendCooldown()
+      const result = await requestOtp(folioValue, token)
+      if (result.errorType === 'RATE_LIMITED') {
+        applyRateLimit(folioValue)
+      } else {
+        startOtpResendCooldown()
+      }
     } catch {
-      appendMessage(createMessage('Lo siento, hubo un error al enviar el código. Intenta de nuevo.', 'bot'))
+      setOtpError('No pudimos enviar el código. Intenta reenviar.')
     } finally {
       setIsLoading(false)
     }
-  }, [getRecaptchaToken, startOtpResendCooldown])
+  }, [getRecaptchaToken, startOtpResendCooldown, applyRateLimit])
 
   const handleFolioSubmit = () => {
     const folioValue = folioInput.trim()
@@ -332,6 +388,14 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     setFolioInput('')
     setFolioError('')
     setFolioConfirmed(true)
+
+    const blockedUntil = readRateLimit(folioValue)
+    if (blockedUntil !== null) {
+      setAwaitingOtp(true)
+      setRateLimitedAt(blockedUntil)
+      return
+    }
+
     void requestOtpForFolio(folioValue)
   }
 
@@ -341,16 +405,18 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   }
 
   const handleOtpSubmit = async () => {
+    if (rateLimitedAt !== null) return
     const otp = normalizeOtp(otpInput)
     if (otp.length !== OTP_LENGTH || isLoading) return
     if (!OTP_DISPLAY_REGEX.test(otpInput)) {
       setOtpError(OTP_ERROR_MESSAGE)
       return
     }
+    const otpFormatted = `${otp.slice(0, 3)}-${otp.slice(3)}`
     setIsLoading(true)
     try {
       const token = await getRecaptchaToken()
-      const ok = await verifyOtp(ctxRef.current.folio, otp, token)
+      const ok = await verifyOtp(ctxRef.current.folio, otpFormatted, token)
       if (ok) {
         ctxRef.current = { ...ctxRef.current, intent: 'continue' }
         setAwaitingOtp(false)
@@ -367,7 +433,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   }
 
   const handleResendOtp = async () => {
-    if (otpResendSeconds > 0 || isLoading) return
+    if (otpResendSeconds > 0 || isLoading || rateLimitedAt !== null) return
     await requestOtpForFolio(ctxRef.current.folio)
   }
 
@@ -470,6 +536,8 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     otpInput,
     otpError,
     otpResendSeconds,
+    otpRateLimited: rateLimitedAt !== null,
+    otpRateLimitedMessage: OTP_RATE_LIMITED_MESSAGE,
     showFolioInput,
     showOtpInput,
     showTopicSelection,

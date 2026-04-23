@@ -110,11 +110,18 @@ export async function sendMessage(
   return extractReply(raw)
 }
 
+export type OtpErrorType = 'RATE_LIMITED'
+
+export interface RequestOtpResult {
+  reply: string
+  errorType?: OtpErrorType
+}
+
 /** Dispara el envío del OTP al correo registrado del folio. */
 export async function requestOtp(
   folio: string,
   recaptchaToken?: string,
-): Promise<string> {
+): Promise<RequestOtpResult> {
   const ctx: ChatContext = { folio, intent: 'resume', userName: 'Visitante' }
   const response = await postToWebhook(buildPayload({ ctx, recaptchaToken }))
 
@@ -123,7 +130,14 @@ export async function requestOtp(
   }
 
   const raw = await response.text()
-  return extractReply(raw)
+  try {
+    const data = JSON.parse(raw) as Record<string, unknown>
+    const reply = (data.message ?? data.output ?? data.text ?? raw) as string
+    const errorType = data.errorType === 'RATE_LIMITED' ? ('RATE_LIMITED' as const) : undefined
+    return { reply, errorType }
+  } catch {
+    return { reply: raw }
+  }
 }
 
 /** Envía el OTP ingresado por el usuario para validarlo server-side. */
