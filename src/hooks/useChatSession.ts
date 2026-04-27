@@ -5,6 +5,7 @@ import {
   generateFolio,
   requestOtp,
   verifyOtp,
+  clearSessionToken,
   type ChatMessage,
   type ChatContext,
   type ChatIntent,
@@ -178,6 +179,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   // ── Reset de sesión ───────────────────────────────────────────────────────
 
   const resetSession = useCallback(() => {
+    clearSessionToken()
     const newFolio = generateFolio()
     setFolio(newFolio)
     ctxRef.current = { folio: newFolio, intent: 'new', userName: 'Visitante' }
@@ -320,11 +322,19 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
     try {
       const token = await getRecaptchaToken()
-      const reply = await sendMessage(text, ctxRef.current, token, extra)
-      processBotReply(reply)
-      // Después del primer mensaje exitoso, toda conversación posterior es "continue".
-      if (ctxRef.current.intent === 'new') {
-        ctxRef.current = { ...ctxRef.current, intent: 'continue' }
+      const { reply, sessionExpired } = await sendMessage(text, ctxRef.current, token, extra)
+      if (sessionExpired) {
+        // Sesion invalida: descartar cualquier flag pendiente (folio post-form,
+        // primera respuesta, etc.) y mostrar el mensaje del bot tal cual.
+        appointmentJustSubmitted.current = false
+        appendMessage(createMessage(reply, 'bot'))
+        setShowRestart(true)
+      } else {
+        processBotReply(reply)
+        if (ctxRef.current.intent === 'new') {
+          // Después del primer mensaje exitoso, toda conversación posterior es "continue".
+          ctxRef.current = { ...ctxRef.current, intent: 'continue' }
+        }
       }
     } catch {
       appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
@@ -336,12 +346,14 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleNewConsultation = () => {
+    clearSessionToken()
     ctxRef.current = { ...ctxRef.current, intent: 'new' }
     setChatMode('new')
     doSend(INITIAL_USER_MESSAGE)
   }
 
   const handleExistingConsultation = () => {
+    clearSessionToken()
     ctxRef.current = { ...ctxRef.current, intent: 'resume' }
     setChatMode('existing')
   }
@@ -477,7 +489,15 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
     getRecaptchaToken()
       .then((token) => sendMessage(payloadMessage, ctxRef.current, token))
-      .then((reply) => processBotReply(reply))
+      .then(({ reply, sessionExpired }) => {
+        if (sessionExpired) {
+          appointmentJustSubmitted.current = false
+          appendMessage(createMessage(reply, 'bot'))
+          setShowRestart(true)
+        } else {
+          processBotReply(reply)
+        }
+      })
       .catch(() => {
         appendMessage(createMessage('Lo siento, hubo un error al conectar. Intenta de nuevo.', 'bot'))
       })

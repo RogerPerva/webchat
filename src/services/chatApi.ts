@@ -45,6 +45,37 @@ export function generateFolio(): string {
   return Array.from(arr, (n) => (n % 10).toString()).join('')
 }
 
+// ── Session token (LocalStorage) ──────────────────────────────────────────────
+// n8n emite un session_token plano tras verificar el OTP (o al crear un chat
+// nuevo). Se guarda aquí y se reenvía en cada request para que n8n valide la
+// sesión contra el hash guardado en su lado.
+
+const SESSION_TOKEN_KEY = 'iwa_session_token'
+
+export function getSessionToken(): string | null {
+  try {
+    return localStorage.getItem(SESSION_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setSessionToken(token: string): void {
+  try {
+    localStorage.setItem(SESSION_TOKEN_KEY, token)
+  } catch {
+    /* localStorage no disponible */
+  }
+}
+
+export function clearSessionToken(): void {
+  try {
+    localStorage.removeItem(SESSION_TOKEN_KEY)
+  } catch {
+    /* localStorage no disponible */
+  }
+}
+
 // ── API ───────────────────────────────────────────────────────────────────────
 
 interface BuildPayloadOptions {
@@ -57,6 +88,7 @@ interface BuildPayloadOptions {
 
 function buildPayload({ text, ctx, recaptchaToken, otp, extra }: BuildPayloadOptions) {
   const folioId = parseFolioId(ctx.folio)
+  const sessionToken = getSessionToken()
   return {
     message: {
       from: { id: folioId, first_name: ctx.userName },
@@ -67,6 +99,7 @@ function buildPayload({ text, ctx, recaptchaToken, otp, extra }: BuildPayloadOpt
     nueva_consulta: ctx.intent,
     ...(recaptchaToken ? { recaptchaToken } : {}),
     ...(otp ? { otp } : {}),
+    ...(sessionToken ? { session_token: sessionToken } : {}),
     ...(extra ?? {}),
   }
 }
@@ -99,15 +132,31 @@ export async function sendMessage(
   ctx: ChatContext,
   recaptchaToken?: string,
   extra?: Record<string, string>,
-): Promise<string> {
+): Promise<SendMessageResult> {
   const response = await postToWebhook(buildPayload({ text, ctx, recaptchaToken, extra }))
+  const raw = await response.text()
+
+  // 404 = sesión inválida / folio no existe. Limpiamos el token para que el
+  // próximo ciclo no lo reenvíe.
+  if (response.status === 404) {
+    clearSessionToken()
+    return { reply: extractReply(raw), sessionExpired: true }
+  }
 
   if (!response.ok) {
     throw new Error(`Error del servidor: ${response.status}`)
   }
 
-  const raw = await response.text()
-  return extractReply(raw)
+  try {
+    const data = JSON.parse(raw) as Record<string, unknown>
+    if (typeof data.session_token === 'string' && data.session_token.length > 0) {
+      setSessionToken(data.session_token)
+    }
+    const reply = (data.message ?? data.output ?? data.text ?? raw) as string
+    return { reply }
+  } catch {
+    return { reply: raw }
+  }
 }
 
 export type OtpErrorType = 'RATE_LIMITED'
@@ -154,7 +203,11 @@ export async function verifyOtp(
   const raw = await response.text()
   try {
     const data = JSON.parse(raw) as Record<string, unknown>
-    return data.verified === true
+    const verified = data.verified === true
+    if (verified && typeof data.session_token === 'string' && data.session_token.length > 0) {
+      setSessionToken(data.session_token)
+    }
+    return verified
   } catch {
     return false
   }
