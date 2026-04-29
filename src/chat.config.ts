@@ -1,9 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// chat.config.ts — Fuente única de verdad para personalizar el widget de chat.
-// Edita este archivo para adaptar el widget a cualquier proyecto.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** URL del webhook de n8n que procesa los mensajes */
 export const WEBHOOK_URL =
   window.IWAChatConfig?.webhookUrl ?? (import.meta.env.VITE_N8N_WEBHOOK_URL as string)
 
@@ -26,6 +20,31 @@ export const FAREWELL_COUNTDOWN_SECONDS = 2 * 60 // 2 minutos
 
 /** Tiempo de inactividad antes de cerrar la sesión (milisegundos) */
 export const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutos
+
+// ── Folio y OTP ───────────────────────────────────────────────────────────────
+
+/** Longitud del folio de sesión (10 dígitos numéricos) */
+export const FOLIO_LENGTH = 10
+
+/** Longitud del código OTP (3 letras + 3 números, formato XXX-XXX al mostrar) */
+export const OTP_LENGTH = 6
+
+/** Cooldown entre reenvíos de OTP (ms) */
+export const OTP_RESEND_COOLDOWN_MS = 60 * 1000 // 1 minuto
+
+/** Mensaje genérico al enviar OTP (no revelar si el folio existe o no) */
+export const OTP_SENT_MESSAGE =
+  'Hemos enviado un código a tu correo registrado con el folio que ingresaste. Ingrésalo para continuar.'
+
+/** Mensaje genérico de error en validación OTP */
+export const OTP_ERROR_MESSAGE = 'No pudimos verificar tu información. Revisa el código e intenta de nuevo.'
+
+/** Mensaje cuando se excede el límite de envíos de OTP por hora */
+export const OTP_RATE_LIMITED_MESSAGE =
+  'Máximo de intentos alcanzado. Contáctanos por correo para continuar.'
+
+/** Duración del bloqueo client-side cuando el server devuelve RATE_LIMITED (ms) */
+export const OTP_RATE_LIMIT_TTL_MS = 60 * 60 * 1000 // 1 hora
 
 // ── Temas para consultas existentes ──────────────────────────────────────────
 // Agrega, quita o edita entradas según los casos de uso del negocio.

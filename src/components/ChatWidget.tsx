@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useChatSession } from '../hooks/useChatSession'
+import { FOLIO_LENGTH, OTP_SENT_MESSAGE } from '../chat.config'
 import ScheduleForm from './ScheduleForm'
 import DateTimePicker from './DateTimePicker'
 
@@ -103,16 +104,23 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         {/* Paso 1 – Ingreso de folio */}
         {session.showFolioInput && (
           <div className="flex h-full flex-col items-center justify-center gap-4">
-            <p className="text-center text-sm font-medium text-white/80">Ingresa tu número de folio:</p>
+            <div className="flex w-full items-center">
+              <button onClick={session.handleGoBack} className="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white" aria-label="Volver">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <p className="flex-1 text-center text-sm font-medium text-white/80">Ingresa tu número de folio:</p>
+              <span className="w-6" />
+            </div>
             <div className="w-full space-y-1.5">
               <div className="flex w-full gap-2">
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={session.folioInput}
-                  onChange={(e) => { session.setFolioInput(e.target.value); session.clearFolioError() }}
+                  onChange={(e) => { session.setFolioInput(e.target.value.replace(/\D/g, '')); session.clearFolioError() }}
                   onKeyDown={(e) => e.key === 'Enter' && session.handleFolioSubmit()}
-                  placeholder="Ej. 123456789"
-                  maxLength={9}
+                  placeholder={`Ej. ${'1234567890'.slice(0, FOLIO_LENGTH)}`}
+                  maxLength={FOLIO_LENGTH}
                   autoFocus
                   className={`flex-1 rounded-full border bg-white/5 px-4 py-2 text-sm text-white placeholder-white/40 outline-none transition-colors focus:border-primary ${session.folioError ? 'border-red-400/70' : 'border-white/10'}`}
                 />
@@ -125,6 +133,72 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
                 </button>
               </div>
               {session.folioError && <p className="pl-4 text-xs text-red-400">{session.folioError}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Paso 1.5 – Ingreso de OTP (después del folio, antes del tema) */}
+        {session.showOtpInput && session.otpRateLimited && (
+          <div className="flex h-full flex-col items-center justify-center gap-3">
+            <div className="flex w-full items-center">
+              <button onClick={session.handleGoBack} className="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white" aria-label="Volver">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span className="flex-1" />
+            </div>
+            <p className="px-2 text-center text-sm font-medium text-red-300">
+              {session.otpRateLimitedMessage}
+            </p>
+            <button
+              onClick={session.resetSession}
+              className="rounded-xl border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10"
+            >
+              Reiniciar chat
+            </button>
+          </div>
+        )}
+        {session.showOtpInput && !session.otpRateLimited && (
+          <div className="flex h-full flex-col items-center justify-center gap-3">
+            <div className="flex w-full items-center">
+              <button onClick={session.handleGoBack} className="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white" aria-label="Volver">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span className="flex-1" />
+            </div>
+            <p className="px-2 text-center text-xs leading-relaxed text-white/70">
+              {OTP_SENT_MESSAGE}
+            </p>
+            <div className="w-full space-y-1.5">
+              <div className="flex w-full gap-2">
+                <input
+                  type="text"
+                  value={session.otpInput}
+                  onChange={(e) => session.setOtpInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && session.handleOtpSubmit()}
+                  placeholder="XXX-XXX"
+                  maxLength={7}
+                  autoFocus
+                  autoComplete="one-time-code"
+                  className={`flex-1 rounded-full border bg-white/5 px-4 py-2 text-center text-sm font-mono uppercase tracking-widest text-white placeholder-white/40 outline-none transition-colors focus:border-primary ${session.otpError ? 'border-red-400/70' : 'border-white/10'}`}
+                />
+                <button
+                  onClick={session.handleOtpSubmit}
+                  disabled={!session.otpInput.trim() || session.isLoading}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white transition-opacity hover:opacity-80 disabled:opacity-40"
+                >
+                  <SendIcon />
+                </button>
+              </div>
+              {session.otpError && <p className="pl-4 text-xs text-red-400">{session.otpError}</p>}
+              <button
+                onClick={session.handleResendOtp}
+                disabled={session.otpResendSeconds > 0 || session.isLoading}
+                className="w-full pt-1 text-xs text-white/50 transition-colors hover:text-white/80 disabled:opacity-40"
+              >
+                {session.otpResendSeconds > 0
+                  ? `Reenviar código en ${session.otpResendSeconds}s`
+                  : 'Reenviar código'}
+              </button>
             </div>
           </div>
         )}
@@ -176,8 +250,8 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
           </div>
         )}
 
-        {/* Indicador de carga */}
-        {session.isLoading && (
+        {/* Indicador de carga (solo cuando ya hay conversación, no en folio/OTP/temas) */}
+        {session.isLoading && session.messages.length > 0 && (
           <div className="mb-3 flex justify-start">
             <div className="rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2 text-sm text-gray-light">
               <span className="inline-flex gap-1">
@@ -193,7 +267,7 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         {session.showCalendar && (
           <div className="mb-3 flex justify-start">
             <div className="w-[95%] rounded-2xl rounded-bl-sm bg-white/10">
-              <DateTimePicker onConfirm={session.handleDateTimeConfirm} />
+              <DateTimePicker onConfirm={session.handleDateTimeConfirm} busySlots={session.busySlots} />
             </div>
           </div>
         )}
