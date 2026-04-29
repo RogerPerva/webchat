@@ -1,0 +1,55 @@
+name: Claude Code
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, assigned]
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          trigger_phrase: "@claude"
+          custom_instructions: |
+            Eres un revisor de código para webchat (widget de chat IWA embebible).
+            Stack: React 19 + TypeScript + Vite + TailwindCSS, integrado con n8n vía webhook.
+
+            Al revisar PRs:
+            - Verifica seguridad: validación de session_token, manejo de OTP, rate limiting,
+              reCAPTCHA, prevención de IDOR/XSS, protección contra prompt injection
+            - Confirma que cambios en `chatApi.ts` mantengan la convención de payload de n8n
+            - Verifica que el frontend NO almacene PII en localStorage (sólo session_token)
+            - Revisa adherencia a SOLID/KISS/DRY; flagea código duplicado o sin usar
+            - Comprueba que no se introduzcan comentarios ruidosos o que expliquen el "qué"
+              en lugar del "porqué"
+            - Sigue las convenciones del repo: comentarios en español, secciones con // ── ──
+
+            Al responder issues:
+            - Ayuda con debugging del flujo n8n ↔ frontend
+            - Sugiere soluciones que respeten la arquitectura existente
+
+            Idioma: responde en español.
