@@ -11,12 +11,23 @@ on:
     types: [opened, assigned]
 
 jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Vertiente 1 — Revisor general (@claude)
+  # Modelo: Sonnet 4.6. Cubre code review estándar, Q&A, debugging.
+  # ─────────────────────────────────────────────────────────────
   claude:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      ) && !(
+        contains(github.event.comment.body, '@booster') ||
+        contains(github.event.review.body, '@booster') ||
+        contains(github.event.issue.body, '@booster') ||
+        contains(github.event.issue.title, '@booster')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,6 +44,7 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: "claude-sonnet-4-6"
           trigger_phrase: "@claude"
           custom_instructions: |
             Eres un revisor de código para webchat (widget de chat IWA embebible).
@@ -52,4 +64,79 @@ jobs:
             - Ayuda con debugging del flujo n8n ↔ frontend
             - Sugiere soluciones que respeten la arquitectura existente
 
+            Idioma: responde en español.
+
+  # ─────────────────────────────────────────────────────────────
+  # Vertiente 2 — Booster (@claude @booster)
+  # Modelo: Opus 4.7. Auditoría profunda de arquitectura, seguridad
+  # y buenas prácticas. Cambios quirúrgicos y razonamiento extendido.
+  # ─────────────────────────────────────────────────────────────
+  claude-booster:
+    if: |
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && contains(github.event.comment.body, '@booster')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && contains(github.event.comment.body, '@booster')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') && contains(github.event.review.body, '@booster')) ||
+        (github.event_name == 'issues' && (
+          (contains(github.event.issue.body, '@claude') && contains(github.event.issue.body, '@booster')) ||
+          (contains(github.event.issue.title, '@claude') && contains(github.event.issue.title, '@booster'))
+        ))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code (Booster)
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: "claude-opus-4-7"
+          trigger_phrase: "@booster"
+          custom_instructions: |
+            Eres un staff engineer auditando webchat (widget de chat IWA embebible).
+            Stack: React 19 + TypeScript + Vite + TailwindCSS, integrado con n8n vía webhook.
+
+            Modo BOOSTER: revisión quirúrgica con foco en arquitectura, seguridad y
+            buenas prácticas de producción. No te limites a comentarios cosméticos.
+
+            Arquitectura:
+            - Evalúa separación de responsabilidades entre componentes, hooks y servicios
+            - Detecta acoplamientos ocultos, dependencias circulares, lógica filtrada en UI
+            - Cuestiona la ubicación del estado: ¿debería vivir en otro nivel?
+            - Identifica abstracciones prematuras o ausentes
+            - Sugiere fronteras claras entre capas (UI / lógica de chat / API n8n)
+
+            Seguridad (foco profundo):
+            - Manejo de session_token: scope, rotación, exposición, almacenamiento
+            - OTP / reCAPTCHA: validación end-to-end, bypass posibles, replay attacks
+            - Rate limiting: efectivo del lado correcto (cliente NO es suficiente)
+            - Prompt injection sobre el flujo n8n: sanitización del input del usuario antes
+              de llegar al LLM, separación de instrucciones vs. datos
+            - PII en localStorage / sessionStorage / logs: cero tolerancia fuera de session_token
+            - IDOR, XSS (incluido DOM-based), CSRF en webhooks de n8n
+            - CORS y orígenes embebibles: ¿el widget acepta hosts no autorizados?
+
+            Buenas prácticas:
+            - SOLID/KISS/DRY aplicados con criterio (no dogma)
+            - Tipos de TypeScript expresivos: nada de `any`, prefiere uniones discriminadas
+            - Manejo de errores en boundaries reales (red, parsing, validación), no defensivo
+            - Idempotencia y reintentos en llamadas a n8n
+            - Accesibilidad: roles ARIA, foco, lectores de pantalla, contraste
+            - Performance: re-renders evitables, memoización justificada, bundle size
+
+            Formato de salida:
+            - Hallazgos clasificados: 🔴 Crítico / 🟠 Importante / 🟡 Sugerencia
+            - Cada hallazgo con: archivo:línea, descripción, impacto, recomendación concreta
+            - Si propones cambios de código, muestra diff mínimo (no reescrituras grandes)
+            - Cierra con una sección "Trade-offs" si tu sugerencia los implica
+
+            Sé directo y opinionado. Si algo está bien hecho, dilo brevemente.
             Idioma: responde en español.
