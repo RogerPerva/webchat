@@ -104,7 +104,13 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         {/* Paso 1 – Ingreso de folio */}
         {session.showFolioInput && (
           <div className="flex h-full flex-col items-center justify-center gap-4">
-            <p className="text-center text-sm font-medium text-white/80">Ingresa tu número de folio:</p>
+            <div className="flex w-full items-center">
+              <button onClick={session.handleGoBack} className="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white" aria-label="Volver">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <p className="flex-1 text-center text-sm font-medium text-white/80">Ingresa tu número de folio:</p>
+              <span className="w-6" />
+            </div>
             <div className="w-full space-y-1.5">
               <div className="flex w-full gap-2">
                 <input
@@ -134,6 +140,12 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         {/* Paso 1.5 – Ingreso de OTP (después del folio, antes del tema) */}
         {session.showOtpInput && session.otpRateLimited && (
           <div className="flex h-full flex-col items-center justify-center gap-3">
+            <div className="flex w-full items-center">
+              <button onClick={session.handleGoBack} className="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white" aria-label="Volver">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span className="flex-1" />
+            </div>
             <p className="px-2 text-center text-sm font-medium text-red-300">
               {session.otpRateLimitedMessage}
             </p>
@@ -147,6 +159,12 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         )}
         {session.showOtpInput && !session.otpRateLimited && (
           <div className="flex h-full flex-col items-center justify-center gap-3">
+            <div className="flex w-full items-center">
+              <button onClick={session.handleGoBack} className="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white" aria-label="Volver">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span className="flex-1" />
+            </div>
             <p className="px-2 text-center text-xs leading-relaxed text-white/70">
               {OTP_SENT_MESSAGE}
             </p>
@@ -249,7 +267,7 @@ export default function ChatWidget({ isOpen, onClose, executeRecaptcha }: ChatWi
         {session.showCalendar && (
           <div className="mb-3 flex justify-start">
             <div className="w-[95%] rounded-2xl rounded-bl-sm bg-white/10">
-              <DateTimePicker onConfirm={session.handleDateTimeConfirm} />
+              <DateTimePicker onConfirm={session.handleDateTimeConfirm} busySlots={session.busySlots} />
             </div>
           </div>
         )}

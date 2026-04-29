@@ -1,7 +1,13 @@
 import { useState } from 'react'
 
+interface BusySlot {
+  start: string
+  end: string
+}
+
 interface DateTimePickerProps {
   onConfirm: (isoDate: string) => void
+  busySlots?: BusySlot[]
 }
 
 const DAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
@@ -28,27 +34,53 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
+export default function DateTimePicker({ onConfirm, busySlots = [] }: DateTimePickerProps) {
   // Inicializadores lazy: se calculan una sola vez al montar el componente
   const [today] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     return d
   })
-  const [tomorrow] = useState(() => {
+  // Bloquea hoy y mañana — mínimo 2 días de anticipación
+  const [minAllowedDate] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() + 1)
+    d.setDate(d.getDate() + 2)
     return d
   })
   const [maxDate] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
-    return new Date(d.getFullYear(), d.getMonth() + 2, d.getDate())
+    return new Date(d.getFullYear(), d.getMonth() + 3, d.getDate())
   })
 
-  const [viewMonth, setViewMonth] = useState(() => tomorrow.getMonth())
-  const [viewYear, setViewYear] = useState(() => tomorrow.getFullYear())
+  // Parsea busy_slots a rangos de ms para comparación rápida
+  const busyRanges = busySlots.map(s => ({
+    startMs: new Date(s.start).getTime(),
+    endMs: new Date(s.end).getTime(),
+  }))
+
+  // Construye el slot en UTC usando offset fijo -06:00 (igual que n8n)
+  function slotToUtcMs(hour: number, minute: number, date: Date): number {
+    const OFFSET_MS = 6 * 60 * 60 * 1000
+    return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute, 0) + OFFSET_MS
+  }
+
+  function isSlotBusy(hour: number, minute: number, date: Date): boolean {
+    if (busyRanges.length === 0) return false
+    const slotStart = slotToUtcMs(hour, minute, date)
+    const slotEnd = slotStart + 30 * 60 * 1000
+    return busyRanges.some(r => slotStart < r.endMs && slotEnd > r.startMs)
+  }
+
+  function isDayFullyBusy(date: Date): boolean {
+    if (busyRanges.length === 0) return false
+    return HOURS.flatMap(h => MINUTES.filter(m => h < 18 || m === 0).map(m => ({ h, m })))
+      .every(({ h, m }) => isSlotBusy(h, m, date))
+  }
+
+  const [viewMonth, setViewMonth] = useState(() => minAllowedDate.getMonth())
+  const [viewYear, setViewYear] = useState(() => minAllowedDate.getFullYear())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [selectedMinute, setSelectedMinute] = useState<number | null>(null)
@@ -66,7 +98,7 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
     else setViewMonth(viewMonth + 1)
   }
 
-  const canGoPrev = viewYear > tomorrow.getFullYear() || (viewYear === tomorrow.getFullYear() && viewMonth > tomorrow.getMonth())
+  const canGoPrev = viewYear > minAllowedDate.getFullYear() || (viewYear === minAllowedDate.getFullYear() && viewMonth > minAllowedDate.getMonth())
   const canGoNext = viewYear < maxDate.getFullYear() || (viewYear === maxDate.getFullYear() && viewMonth < maxDate.getMonth())
 
   const handleConfirm = () => {
@@ -116,12 +148,14 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
         {Array.from({ length: daysInMonth }, (_, i) => {
           const day = i + 1
           const date = new Date(viewYear, viewMonth, day)
-          const isPast = date < tomorrow
+          const isPast = date < minAllowedDate
           const isFutureBeyondLimit = date > maxDate
           const isWeekend = date.getDay() === 0 || date.getDay() === 6
-          const disabled = isPast || isFutureBeyondLimit || isWeekend
+          const isFullyBusy = !isPast && !isFutureBeyondLimit && !isWeekend && isDayFullyBusy(date)
+          const disabled = isPast || isFutureBeyondLimit || isWeekend || isFullyBusy
           const isSelected = selectedDate && isSameDay(date, selectedDate)
           const isToday = isSameDay(date, today)
+          const isTomorrow = isSameDay(date, new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1))
 
           return (
             <button
@@ -129,7 +163,11 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
               disabled={disabled}
               onClick={() => setSelectedDate(date)}
               className={`flex h-7 w-full items-center justify-center rounded text-xs transition-colors
-                ${disabled ? 'cursor-not-allowed text-white/15' : 'cursor-pointer text-white/80 hover:bg-white/10'}
+                ${disabled
+                  ? (isToday || isTomorrow)
+                    ? 'cursor-not-allowed text-white/30'
+                    : 'cursor-not-allowed text-white/15'
+                  : 'cursor-pointer text-white/80 hover:bg-white/10'}
                 ${isSelected ? '!bg-primary !text-white font-semibold' : ''}
                 ${isToday && !isSelected ? 'ring-1 ring-primary/50' : ''}
               `}
@@ -149,14 +187,18 @@ export default function DateTimePicker({ onConfirm }: DateTimePickerProps) {
               MINUTES.filter((m) => h < 18 || m === 0).map((m) => {
                 const label = `${pad(h)}:${pad(m)}`
                 const isActive = selectedHour === h && selectedMinute === m
+                const isBusy = selectedDate ? isSlotBusy(h, m, selectedDate) : false
                 return (
                   <button
                     key={label}
+                    disabled={isBusy}
                     onClick={() => { setSelectedHour(h); setSelectedMinute(m) }}
                     className={`rounded-md px-2 py-1 text-[11px] transition-colors
-                      ${isActive
-                        ? 'bg-primary text-white font-semibold'
-                        : 'bg-white/5 text-white/70 hover:bg-white/15'
+                      ${isBusy
+                        ? 'cursor-not-allowed bg-white/5 text-white/15'
+                        : isActive
+                          ? 'bg-primary text-white font-semibold'
+                          : 'bg-white/5 text-white/70 hover:bg-white/15'
                       }
                     `}
                   >

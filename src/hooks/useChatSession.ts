@@ -8,8 +8,8 @@ import {
   clearSessionToken,
   type ChatMessage,
   type ChatContext,
-  type ChatIntent,
   type AppointmentData,
+  type BusySlot,
 } from '../services/chatApi'
 import {
   INITIAL_USER_MESSAGE,
@@ -23,7 +23,6 @@ import {
   OTP_LENGTH,
   OTP_RESEND_COOLDOWN_MS,
   OTP_ERROR_MESSAGE,
-  SESSION_EXPIRED_MESSAGE,
   OTP_RATE_LIMITED_MESSAGE,
   OTP_RATE_LIMIT_TTL_MS,
 } from '../chat.config'
@@ -57,6 +56,8 @@ export interface ChatSession {
   otpRateLimited: boolean
   otpRateLimitedMessage: string
 
+  busySlots: BusySlot[]
+
   showFolioInput: boolean
   showOtpInput: boolean
   showTopicSelection: boolean
@@ -71,6 +72,7 @@ export interface ChatSession {
   setShowSchedule: (v: boolean) => void
   handleNewConsultation: () => void
   handleExistingConsultation: () => void
+  handleGoBack: () => void
   handleFolioSubmit: () => void
   handleOtpSubmit: () => void
   handleResendOtp: () => void
@@ -152,6 +154,8 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   const [, setHasReceivedFirstReply] = useState(false)
   const [farewellCountdown, setFarewellCountdown] = useState<number | null>(null)
   const [inactivityClosed, setInactivityClosed] = useState(false)
+
+  const [busySlots, setBusySlots] = useState<BusySlot[]>([])
 
   const [awaitingOtp, setAwaitingOtp] = useState(false)
   const [otpInput, setOtpInputState] = useState('')
@@ -322,8 +326,14 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
     try {
       const token = await getRecaptchaToken()
-      const { reply, sessionExpired } = await sendMessage(text, ctxRef.current, token, extra)
-      if (sessionExpired) {
+      const { reply, sessionExpired, rateLimited, retryAfter, busySlots: newBusySlots } = await sendMessage(text, ctxRef.current, token, extra)
+      if (newBusySlots) setBusySlots(newBusySlots)
+      if (rateLimited) {
+        const msg = retryAfter
+          ? `Demasiadas peticiones. Reintenta en ${retryAfter}.`
+          : 'Demasiadas peticiones. Intenta de nuevo en unos segundos.'
+        appendMessage(createMessage(msg, 'bot'))
+      } else if (sessionExpired) {
         // Sesion invalida: descartar cualquier flag pendiente (folio post-form,
         // primera respuesta, etc.) y mostrar el mensaje del bot tal cual.
         appointmentJustSubmitted.current = false
@@ -344,6 +354,22 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleGoBack = useCallback(() => {
+    setChatMode(null)
+    setFolioInput('')
+    setFolioError('')
+    setFolioConfirmed(false)
+    setAwaitingOtp(false)
+    setOtpInputState('')
+    setOtpError('')
+    setOtpResendSeconds(0)
+    setRateLimitedAt(null)
+    if (otpResendTimerRef.current) {
+      clearInterval(otpResendTimerRef.current)
+      otpResendTimerRef.current = null
+    }
+  }, [])
 
   const handleNewConsultation = () => {
     clearSessionToken()
@@ -489,8 +515,14 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
 
     getRecaptchaToken()
       .then((token) => sendMessage(payloadMessage, ctxRef.current, token))
-      .then(({ reply, sessionExpired }) => {
-        if (sessionExpired) {
+      .then(({ reply, sessionExpired, rateLimited, retryAfter, busySlots: newBusySlots }) => {
+        if (newBusySlots) setBusySlots(newBusySlots)
+        if (rateLimited) {
+          const msg = retryAfter
+            ? `Demasiadas peticiones. Reintenta en ${retryAfter}.`
+            : 'Demasiadas peticiones. Intenta de nuevo en unos segundos.'
+          appendMessage(createMessage(msg, 'bot'))
+        } else if (sessionExpired) {
           appointmentJustSubmitted.current = false
           appendMessage(createMessage(reply, 'bot'))
           setShowRestart(true)
@@ -513,7 +545,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
       userName: data.name.trim().split(/\s+/)[0] || 'Visitante',
     }
     appointmentJustSubmitted.current = true
-    doSend(buildAppointmentText(data), { canInvest: data.canInvest })
+    doSend(buildAppointmentText(data), { canInvest: data.canInvest, etapa: data.appType })
   }
 
   // ── Valores derivados ─────────────────────────────────────────────────────
@@ -556,6 +588,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     otpInput,
     otpError,
     otpResendSeconds,
+    busySlots,
     otpRateLimited: rateLimitedAt !== null,
     otpRateLimitedMessage: OTP_RATE_LIMITED_MESSAGE,
     showFolioInput,
@@ -573,6 +606,7 @@ export function useChatSession(options: UseChatSessionOptions = {}): ChatSession
     setShowSchedule,
     handleNewConsultation,
     handleExistingConsultation,
+    handleGoBack,
     handleFolioSubmit,
     handleOtpSubmit,
     handleResendOtp,

@@ -112,11 +112,17 @@ function parseFolioId(folio: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
+export interface BusySlot {
+  start: string
+  end: string
+}
+
 export interface SendMessageResult {
   reply: string
   sessionExpired?: boolean
-  otpRequired?: boolean
-  verified?: boolean
+  rateLimited?: boolean
+  retryAfter?: string
+  busySlots?: BusySlot[]
 }
 
 async function postToWebhook(payload: Record<string, unknown>): Promise<Response> {
@@ -125,6 +131,11 @@ async function postToWebhook(payload: Record<string, unknown>): Promise<Response
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
+}
+
+function parseRetryAfter(raw: string): string | undefined {
+  const data = JSON.parse(raw) as Record<string, unknown>
+  return typeof data.retryAfter === 'number' ? `${data.retryAfter}s` : undefined
 }
 
 export async function sendMessage(
@@ -143,6 +154,10 @@ export async function sendMessage(
     return { reply: extractReply(raw), sessionExpired: true }
   }
 
+  if (response.status === 429) {
+    return { reply: '', rateLimited: true, retryAfter: parseRetryAfter(raw) }
+  }
+
   if (!response.ok) {
     throw new Error(`Error del servidor: ${response.status}`)
   }
@@ -153,7 +168,8 @@ export async function sendMessage(
       setSessionToken(data.session_token)
     }
     const reply = (data.message ?? data.output ?? data.text ?? raw) as string
-    return { reply }
+    const busySlots = Array.isArray(data.busy_slots) ? (data.busy_slots as BusySlot[]) : undefined
+    return { reply, busySlots }
   } catch {
     return { reply: raw }
   }
@@ -164,6 +180,7 @@ export type OtpErrorType = 'RATE_LIMITED'
 export interface RequestOtpResult {
   reply: string
   errorType?: OtpErrorType
+  retryAfter?: string
 }
 
 /** Dispara el envío del OTP al correo registrado del folio. */
@@ -174,11 +191,16 @@ export async function requestOtp(
   const ctx: ChatContext = { folio, intent: 'resume', userName: 'Visitante' }
   const response = await postToWebhook(buildPayload({ ctx, recaptchaToken }))
 
+  const raw = await response.text()
+
+  if (response.status === 429) {
+    return { reply: '', errorType: 'RATE_LIMITED', retryAfter: parseRetryAfter(raw) }
+  }
+
   if (!response.ok) {
     throw new Error(`Error del servidor: ${response.status}`)
   }
 
-  const raw = await response.text()
   try {
     const data = JSON.parse(raw) as Record<string, unknown>
     const reply = (data.message ?? data.output ?? data.text ?? raw) as string
@@ -227,7 +249,7 @@ function extractReply(raw: string): string {
 export function buildAppointmentText(data: AppointmentData): string {
   let text = `Mi nombre es ${data.name}`
   if (data.company) text += `, de la empresa ${data.company}`
-  text += `. Mi teléfono es ${data.phone} y mi correo es ${data.email}. ${data.appType}.`
+  text += `. Mi teléfono es ${data.phone} y mi correo es ${data.email}.`
   if (data.budget) text += ` Mi presupuesto es ${data.budget}.`
   text += ` ${data.description}`
   return text

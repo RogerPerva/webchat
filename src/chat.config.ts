@@ -1,9 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// chat.config.ts — Fuente única de verdad para personalizar el widget de chat.
-// Edita este archivo para adaptar el widget a cualquier proyecto.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** URL del webhook de n8n que procesa los mensajes */
 export const WEBHOOK_URL =
   window.IWAChatConfig?.webhookUrl ?? (import.meta.env.VITE_N8N_WEBHOOK_URL as string)
 
@@ -44,10 +38,6 @@ export const OTP_SENT_MESSAGE =
 
 /** Mensaje genérico de error en validación OTP */
 export const OTP_ERROR_MESSAGE = 'No pudimos verificar tu información. Revisa el código e intenta de nuevo.'
-
-/** Mensaje cuando la sesión verificada expira mid-conversación */
-export const SESSION_EXPIRED_MESSAGE =
-  'Tu sesión expiró por seguridad. Ingresa de nuevo el código que te enviamos por correo.'
 
 /** Mensaje cuando se excede el límite de envíos de OTP por hora */
 export const OTP_RATE_LIMITED_MESSAGE =

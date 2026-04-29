@@ -23,6 +23,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
   const [phonePrefix, setPhonePrefix] = useState('+52')
   const [budgetRaw, setBudgetRaw] = useState('')
   const [budgetCurrency, setBudgetCurrency] = useState<'USD' | 'MXN'>('MXN')
+  const [website, setWebsite] = useState('')
   const [form, setForm] = useState<AppointmentData>({
     name: '',
     phone: '',
@@ -55,6 +56,7 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
 
   const handleSubmit = (ev: React.FormEvent) => {
     ev.preventDefault()
+    if (website !== '') return
     if (validate()) {
       const formatted = formatBudget(budgetRaw, budgetCurrency)
       onSubmit({ ...form, phone: `${phonePrefix} ${form.phone}`, budget: formatted })
@@ -74,6 +76,17 @@ export default function ScheduleForm({ onSubmit }: ScheduleFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 px-4 py-4">
       <h3 className="text-sm font-semibold text-white">Completa tus datos</h3>
+
+      <input
+        type="text"
+        name="website"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        value={website}
+        onChange={(e) => setWebsite(e.target.value)}
+        style={{ position: 'absolute', left: '-9999px', width: 0, height: 0, opacity: 0 }}
+      />
 
       <div>
         <input
