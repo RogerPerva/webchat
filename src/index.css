@@ -24,6 +24,56 @@ body {
   animation: slide-up 0.2s ease-out;
 }
 
+@keyframes teaser-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-teaser-in {
+  animation: teaser-in .5s ease;
+}
+
+@keyframes greeting {
+  0% { opacity: 0; transform: translateY(-50%) translateX(20px); }
+  12% { opacity: 1; transform: translateY(-50%) translateX(0); }
+  88% { opacity: 1; transform: translateY(-50%) translateX(0); }
+  100% { opacity: 0; transform: translateY(-50%) translateX(20px); }
+}
+
+.animate-greeting {
+  animation: greeting 4s ease forwards;
+}
+
+@keyframes notification-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, .5); }
+  70% { box-shadow: 0 0 0 12px rgba(255, 59, 48, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+}
+
+.animate-notification-pulse {
+  animation: notification-pulse 1.8s infinite;
+}
+
+@keyframes icon-chat {
+  0%, 42% { opacity: 1; transform: rotate(0deg) scale(1); }
+  50%, 92% { opacity: 0; transform: rotate(180deg) scale(.5); }
+  100% { opacity: 1; transform: rotate(360deg) scale(1); }
+}
+
+.animate-icon-chat {
+  animation: icon-chat 3.5s infinite;
+}
+
+@keyframes icon-smile {
+  0%, 42% { opacity: 0; transform: rotate(-180deg) scale(.5); }
+  50%, 92% { opacity: 1; transform: rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: rotate(180deg) scale(.5); }
+}
+
+.animate-icon-smile {
+  animation: icon-smile 3.5s infinite;
+}
+
 .grecaptcha-badge {
   visibility: hidden !important;
 }
